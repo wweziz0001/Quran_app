@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// POST - Import audio files from URL pattern
+// POST - Import audio files from URL pattern (OPTIMIZED)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -44,7 +44,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all ayahs in the specified range
+    console.log(`🚀 Starting optimized import for ${reciter.nameEnglish}...`);
+
+    // 1. Get all ayahs in one query
     const ayahs = await db.ayah.findMany({
       where: {
         ayahNumberGlobal: {
@@ -68,98 +70,111 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`📚 Found ${ayahs.length} ayahs`);
+
+    // 2. Get all existing recitation ayahs for this reciter in one query
+    const existingAudio = await db.recitationAyah.findMany({
+      where: {
+        Recitation: {
+          reciterId: reciter.id,
+        },
+        ayahId: { in: ayahs.map(a => a.id) },
+      },
+      select: { ayahId: true },
+    });
+    const existingAyahIds = new Set(existingAudio.map(a => a.ayahId));
+    console.log(`⏭️ Skipping ${existingAyahIds.size} existing`);
+
+    // 3. Get or create recitations for all surahs (batch)
+    const surahIds = [...new Set(ayahs.map(a => a.surahId))];
+    let recitations = await db.recitation.findMany({
+      where: {
+        surahId: { in: surahIds },
+        reciterId: reciter.id,
+      },
+    });
+    const recitationMap = new Map(recitations.map(r => [r.surahId, r]));
+
+    // Create missing recitations
+    const missingSurahIds = surahIds.filter(s => !recitationMap.has(s));
+    const bitrate = quality === 'lossless' ? 320 : quality === 'high' ? 192 : quality === 'medium' ? 128 : 64;
+
+    if (missingSurahIds.length > 0) {
+      const newRecitations = await db.recitation.createMany({
+        data: missingSurahIds.map(surahId => ({
+          id: `${reciter.id}-${surahId}-${Date.now()}`,
+          surahId,
+          reciterId: reciter.id,
+          style: 'murattal',
+          bitrate,
+          format: 'mp3',
+          audioUrl: '',
+          isActive: true,
+          updatedAt: new Date(),
+        })),
+        skipDuplicates: true,
+      });
+      console.log(`📝 Created ${newRecitations.count} new recitations`);
+
+      // Re-fetch recitations
+      recitations = await db.recitation.findMany({
+        where: {
+          surahId: { in: surahIds },
+          reciterId: reciter.id,
+        },
+      });
+      recitations.forEach(r => recitationMap.set(r.surahId, r));
+    }
+
+    // 4. Prepare batch insert
+    const toImport = ayahs.filter(a => !existingAyahIds.has(a.id));
+    console.log(`🎵 Importing ${toImport.length} audio files...`);
+
+    const batchSize = 500;
     let imported = 0;
-    let skipped = 0;
     let errors = 0;
 
-    // Import audio for each ayah
-    for (const ayah of ayahs) {
-      try {
-        // Check if audio already exists for this ayah and reciter
-        const existing = await db.recitationAyah.findFirst({
-          where: {
-            ayahId: ayah.id,
-            Recitation: {
-              reciterId: reciter.id,
-            },
-          },
-        });
+    for (let i = 0; i < toImport.length; i += batchSize) {
+      const batch = toImport.slice(i, i + batchSize);
 
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
-        // Build audio URL from pattern
+      const dataToInsert = batch.map(ayah => {
+        const recitation = recitationMap.get(ayah.surahId);
         const audioUrl = urlPattern.replace('{ayah_id}', String(ayah.ayahNumberGlobal));
+        return {
+          id: `${reciter.id}-${ayah.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          recitationId: recitation!.id,
+          ayahId: ayah.id,
+          startTime: 0,
+          endTime: 0,
+          audioUrl,
+          durationMs: null,
+        };
+      });
 
-        // Create or get recitation record for this surah
-        let recitation = await db.recitation.findFirst({
-          where: {
-            surahId: ayah.surahId,
-            reciterId: reciter.id,
-          },
+      try {
+        await db.recitationAyah.createMany({
+          data: dataToInsert,
+          skipDuplicates: true,
         });
-
-        if (!recitation) {
-          recitation = await db.recitation.create({
-            data: {
-              id: `${reciter.id}-${ayah.surahId}-${Date.now()}`,
-              surahId: ayah.surahId,
-              reciterId: reciter.id,
-              style: 'murattal',
-              bitrate: quality === 'lossless' ? 320 : quality === 'high' ? 192 : quality === 'medium' ? 128 : 64,
-              format: 'mp3',
-              audioUrl: '',
-              isActive: true,
-              updatedAt: new Date(),
-            },
-          });
-        }
-
-        // Create recitation ayah
-        await db.recitationAyah.create({
-          data: {
-            id: `${recitation.id}-${ayah.id}-${Date.now()}`,
-            recitationId: recitation.id,
-            ayahId: ayah.id,
-            startTime: 0,
-            endTime: 0,
-            audioUrl: audioUrl,
-            durationMs: null,
-          },
-        });
-
-        imported++;
-
-        // Log progress every 500 ayahs
-        if (imported % 500 === 0) {
-          console.log(`Progress: ${imported}/${ayahs.length} ayahs imported...`);
-        }
+        imported += batch.length;
+        console.log(`✅ Progress: ${imported}/${toImport.length}`);
       } catch (err) {
-        errors++;
-        if (errors < 10) {
-          console.error(`Error importing audio for ayah ${ayah.ayahNumberGlobal}:`, err);
-        }
-      }
-
-      // Small delay every 100 ayahs to avoid overwhelming the database
-      if ((imported + skipped) % 100 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        errors += batch.length;
+        console.error(`❌ Batch error:`, err);
       }
     }
 
-    console.log(`\nCompleted: ${imported} imported, ${skipped} skipped, ${errors} errors`);
+    console.log(`\n🎉 Completed: ${imported} imported, ${existingAyahIds.size} skipped, ${errors} errors`);
 
     return NextResponse.json({
       success: true,
       data: {
         imported,
-        skipped,
+        skipped: existingAyahIds.size,
         errors,
         total: ayahs.length,
       },
-      message: `تم استيراد ${imported} ملف صوتي، تم تخطي ${skipped} ملف موجود مسبقاً`,
+      message: `تم استيراد ${imported} ملف صوتي، تم تخطي ${existingAyahIds.size} ملف موجود مسبقاً`,
     });
   } catch (error) {
     console.error('Error in bulk import:', error);
