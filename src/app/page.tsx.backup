@@ -1,0 +1,801 @@
+'use client';
+
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { 
+  LayoutDashboard, Database, Code, Server, Shield, Settings, 
+  BookOpen, Headphones, Smartphone, Cloud, FolderOpen,
+  Menu, Moon, Sun, Search, Activity, Zap, CheckCircle,
+  Globe, Users, FileText, Key
+} from 'lucide-react';
+import { useTheme } from 'next-themes';
+
+// Import section components
+import { ArchitectureSection } from '@/components/admin/architecture-section';
+import { DatabaseSection } from '@/components/admin/database-section';
+import { AndroidSection } from '@/components/admin/android-section';
+import { FilesSection } from '@/components/admin/files-section';
+import { CodeBlock } from '@/components/admin/code-block';
+
+type Section = 'dashboard' | 'architecture' | 'database' | 'api' | 'reciters' | 'tafsir' | 'settings' | 'android' | 'deployment' | 'security' | 'files';
+
+interface NavItem {
+  id: Section;
+  label: string;
+  icon: React.ReactNode;
+  badge?: string;
+}
+
+const navItems: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { id: 'architecture', label: 'Architecture', icon: <Globe className="h-4 w-4" /> },
+  { id: 'database', label: 'Database', icon: <Database className="h-4 w-4" /> },
+  { id: 'api', label: 'API Docs', icon: <Code className="h-4 w-4" /> },
+  { id: 'reciters', label: 'Reciters', icon: <Headphones className="h-4 w-4" />, badge: 'CRUD' },
+  { id: 'tafsir', label: 'Tafsir', icon: <BookOpen className="h-4 w-4" />, badge: 'CRUD' },
+  { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
+  { id: 'android', label: 'Android', icon: <Smartphone className="h-4 w-4" /> },
+  { id: 'deployment', label: 'Deployment', icon: <Cloud className="h-4 w-4" /> },
+  { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
+  { id: 'files', label: 'Files', icon: <FolderOpen className="h-4 w-4" />, badge: 'NEW' },
+];
+
+// Dashboard Section
+function DashboardSection() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Dashboard</h2>
+        <p className="text-muted-foreground">System overview and real-time statistics</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Surahs</p>
+                <p className="text-3xl font-bold">114</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Ayahs</p>
+                <p className="text-3xl font-bold">6,236</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Reciters</p>
+                <p className="text-3xl font-bold">5</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Headphones className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Tafsir Sources</p>
+                <p className="text-3xl font-bold">4</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activity & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[
+                { action: 'New reciter added', user: 'Admin', time: '2 hours ago' },
+                { action: 'Tafsir entry updated', user: 'Editor', time: '5 hours ago' },
+                { action: 'User registered', user: 'System', time: '1 day ago' },
+                { action: 'Settings updated', user: 'Admin', time: '2 days ago' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{item.action}</p>
+                    <p className="text-xs text-muted-foreground">by {item.user}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{item.time}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Headphones className="h-5 w-5" />
+                <span className="text-xs">Add Reciter</span>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <BookOpen className="h-5 w-5" />
+                <span className="text-xs">Add Tafsir</span>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Users className="h-5 w-5" />
+                <span className="text-xs">Manage Users</span>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <Settings className="h-5 w-5" />
+                <span className="text-xs">Settings</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            System Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
+              <div className="h-3 w-3 rounded-full bg-green-500" />
+              <div>
+                <p className="text-sm font-medium">API Server</p>
+                <p className="text-xs text-muted-foreground">Operational</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
+              <div className="h-3 w-3 rounded-full bg-green-500" />
+              <div>
+                <p className="text-sm font-medium">Database</p>
+                <p className="text-xs text-muted-foreground">Connected</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
+              <div className="h-3 w-3 rounded-full bg-green-500" />
+              <div>
+                <p className="text-sm font-medium">CDN</p>
+                <p className="text-xs text-muted-foreground">Active</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// API Section
+function ApiSection() {
+  const endpoints = [
+    { method: 'GET', path: '/api/surahs', description: 'List all surahs' },
+    { method: 'GET', path: '/api/surahs/:id', description: 'Get surah with ayahs' },
+    { method: 'GET', path: '/api/ayah/:id', description: 'Get single ayah' },
+    { method: 'GET', path: '/api/reciters', description: 'List all reciters' },
+    { method: 'POST', path: '/api/auth/login', description: 'User login' },
+    { method: 'POST', path: '/api/auth/register', description: 'User registration' },
+    { method: 'GET', path: '/api/bookmarks', description: 'Get user bookmarks' },
+    { method: 'POST', path: '/api/bookmarks', description: 'Add bookmark' },
+    { method: 'GET', path: '/api/search', description: 'Search Quran' },
+    { method: 'GET', path: '/api/admin/users', description: 'List users (admin)' },
+  ];
+
+  const exampleRequest = `GET /api/surahs/1?translation=en-sahih
+
+Headers:
+  Accept: application/json`;
+
+  const exampleResponse = `{
+  "success": true,
+  "data": {
+    "id": 1,
+    "number": 1,
+    "nameArabic": "الفاتحة",
+    "nameEnglish": "Al-Fatiha",
+    "totalAyahs": 7,
+    "ayahs": [
+      {
+        "id": 1,
+        "ayahNumber": 1,
+        "textArabic": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+        "translation": {
+          "text": "In the name of Allah, the Most Gracious...",
+          "sourceName": "Sahih International"
+        }
+      }
+    ]
+  }
+}`;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">API Documentation</h2>
+        <p className="text-muted-foreground">REST API endpoints with request/response examples</p>
+      </div>
+
+      {/* Endpoints List */}
+      <div className="space-y-3">
+        {endpoints.map((ep, i) => (
+          <Card key={i} className="overflow-hidden">
+            <div className="flex items-center p-4 gap-4">
+              <Badge className={cn(
+                "font-mono text-xs",
+                ep.method === 'GET' && "bg-green-500/10 text-green-600 border-green-500/20",
+                ep.method === 'POST' && "bg-blue-500/10 text-blue-600 border-blue-500/20"
+              )}>
+                {ep.method}
+              </Badge>
+              <code className="font-mono text-sm">{ep.path}</code>
+              <span className="text-sm text-muted-foreground ml-auto">{ep.description}</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Example */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Example: Get Surah</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-sm font-medium mb-2">Request</p>
+            <CodeBlock code={exampleRequest} />
+          </div>
+          <div>
+            <p className="text-sm font-medium mb-2">Response</p>
+            <CodeBlock code={exampleResponse} />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Reciters Section
+function RecitersSection() {
+  const reciters = [
+    { id: '1', nameArabic: 'عبد الباسط عبد الصمد', nameEnglish: 'Abdul Basit Abdul Samad', country: 'Egypt', popularity: 100 },
+    { id: '2', nameArabic: 'مشاري راشد العفاسي', nameEnglish: 'Mishary Rashid Al-Afasy', country: 'Kuwait', popularity: 95 },
+    { id: '3', nameArabic: 'عبد الرحمن السديس', nameEnglish: 'Abdur Rahman As-Sudais', country: 'Saudi Arabia', popularity: 90 },
+    { id: '4', nameArabic: 'محمد صديق المنشاوي', nameEnglish: 'Mohamed Siddiq El-Minshawi', country: 'Egypt', popularity: 85 },
+    { id: '5', nameArabic: 'ماهر المعيقلي', nameEnglish: 'Maher Al-Muaiqly', country: 'Saudi Arabia', popularity: 80 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Reciters Management</h2>
+          <p className="text-muted-foreground">Manage Quran reciters and audio files</p>
+        </div>
+        <Button>Add Reciter</Button>
+      </div>
+
+      <div className="space-y-3">
+        {reciters.map((reciter) => (
+          <Card key={reciter.id}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Headphones className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{reciter.nameEnglish}</p>
+                    <p className="text-sm text-muted-foreground" dir="rtl">{reciter.nameArabic}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline">{reciter.country}</Badge>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold">{reciter.popularity}%</p>
+                    <p className="text-xs text-muted-foreground">popularity</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost">Edit</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive">Delete</Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Tafsir Section
+function TafsirSection() {
+  const sources = [
+    { id: '1', nameArabic: 'تفسير ابن كثير', nameEnglish: 'Tafsir Ibn Kathir', language: 'ar', entries: 6236 },
+    { id: '2', nameArabic: 'تفسير الجلالين', nameEnglish: 'Tafsir Al-Jalalayn', language: 'ar', entries: 6236 },
+    { id: '3', nameArabic: 'تفسير الطبري', nameEnglish: 'Tafsir At-Tabari', language: 'ar', entries: 6236 },
+    { id: '4', nameArabic: 'الدر المنثور', nameEnglish: 'Ad-Durr Al-Manthur', language: 'ar', entries: 6236 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">Tafsir Management</h2>
+          <p className="text-muted-foreground">Manage Quran commentary sources</p>
+        </div>
+        <Button>Add Tafsir Source</Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sources.map((source) => (
+          <Card key={source.id}>
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{source.nameEnglish}</p>
+                      <p className="text-sm text-muted-foreground" dir="rtl">{source.nameArabic}</p>
+                    </div>
+                    <Badge variant="outline">{source.language}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      {source.entries.toLocaleString()} entries
+                    </span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline">View</Button>
+                      <Button size="sm" variant="outline">Edit</Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Settings Section
+function SettingsSection() {
+  const settings = [
+    { key: 'app_name', value: 'Quran App', description: 'Application name', isPublic: true },
+    { key: 'app_version', value: '1.0.0', description: 'Current version', isPublic: true },
+    { key: 'default_reciter', value: 'mishary-rashid-al-afasy', description: 'Default reciter slug', isPublic: true },
+    { key: 'default_translation', value: 'en-sahih', description: 'Default translation', isPublic: true },
+    { key: 'max_bookmarks', value: '1000', description: 'Max bookmarks per user', isPublic: false },
+    { key: 'audio_cdn_url', value: 'https://cdn.quran.com/audio', description: 'Audio CDN URL', isPublic: false },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Application Settings</h2>
+        <p className="text-muted-foreground">Configure application behavior</p>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="divide-y">
+            {settings.map((setting, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-muted/30">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-sm">{setting.key}</code>
+                    {setting.isPublic && <Badge variant="outline" className="text-xs">Public</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{setting.description}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input defaultValue={setting.value} className="w-64" />
+                  <Button size="sm" variant="outline">Save</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Deployment Section
+function DeploymentSection() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Deployment Configuration</h2>
+        <p className="text-muted-foreground">Docker, Kubernetes, and CI/CD configurations</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Docker Compose</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/quran_app
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=quran_app
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:`} language="yaml" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dockerfile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`# Build stage
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json bun.lockb ./
+RUN npm install -g bun && bun install --frozen-lockfile
+COPY . .
+RUN bun run build
+
+# Production stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]`} language="dockerfile" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>GitHub Actions CI/CD</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production
+        run: |
+          ssh user@server 'cd /app && docker-compose pull && docker-compose up -d'`} language="yaml" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Security Section
+function SecuritySection() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Security Implementation</h2>
+        <p className="text-muted-foreground">Security measures and best practices</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[
+          { icon: <Key className="h-6 w-6" />, title: 'JWT Authentication', description: 'Secure token-based authentication' },
+          { icon: <Shield className="h-6 w-6" />, title: 'Rate Limiting', description: '100 requests per minute per IP' },
+          { icon: <CheckCircle className="h-6 w-6" />, title: 'Input Validation', description: 'Zod schemas for all endpoints' },
+          { icon: <Server className="h-6 w-6" />, title: 'Secure File Upload', description: 'Type validation, S3 storage' },
+        ].map((item, i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  {item.icon}
+                </div>
+                <div>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rate Limiting Implementation</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`import { NextRequest, NextResponse } from 'next/server';
+
+const rateLimits = new Map<string, { count: number; resetTime: number }>();
+
+export function rateLimit(
+  request: NextRequest,
+  options: { windowMs?: number; maxRequests?: number } = {}
+): NextResponse | null {
+  const { windowMs = 60000, maxRequests = 100 } = options;
+  
+  const ip = request.headers.get('x-forwarded-for') || 'unknown';
+  const key = \`\${ip}:\${request.nextUrl.pathname}\`;
+  const now = Date.now();
+  
+  const limit = rateLimits.get(key);
+  
+  if (!limit || now > limit.resetTime) {
+    rateLimits.set(key, { count: 1, resetTime: now + windowMs });
+    return null;
+  }
+  
+  if (limit.count >= maxRequests) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests' },
+      { status: 429 }
+    );
+  }
+  
+  limit.count++;
+  return null;
+}`} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Input Validation with Zod</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`import { z } from 'zod';
+
+export const loginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(6).max(100),
+});
+
+export const bookmarkSchema = z.object({
+  ayahId: z.number().int().positive(),
+  type: z.enum(['BOOKMARK', 'HIGHLIGHT', 'NOTE']),
+  note: z.string().max(1000).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+});`} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Android Secure Storage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={`class SecureStorage @Inject constructor(
+    private val context: Context
+) {
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    
+    private val encryptedPrefs = EncryptedSharedPreferences.create(
+        context,
+        "secure_prefs",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+    
+    fun saveToken(token: String) {
+        encryptedPrefs.edit { putString("auth_token", token) }
+    }
+    
+    fun getToken(): String? = encryptedPrefs.getString("auth_token", null)
+}`} language="kotlin" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Main App Component
+export default function AdminDashboard() {
+  const [activeSection, setActiveSection] = useState<Section>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { theme, setTheme } = useTheme();
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'dashboard': return <DashboardSection />;
+      case 'architecture': return <ArchitectureSection />;
+      case 'database': return <DatabaseSection />;
+      case 'api': return <ApiSection />;
+      case 'reciters': return <RecitersSection />;
+      case 'tafsir': return <TafsirSection />;
+      case 'settings': return <SettingsSection />;
+      case 'android': return <AndroidSection />;
+      case 'deployment': return <DeploymentSection />;
+      case 'security': return <SecuritySection />;
+      case 'files': return <FilesSection />;
+      default: return <DashboardSection />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-card border-r transition-all duration-300",
+        sidebarOpen ? "w-64" : "w-16"
+      )}>
+        <div className="h-16 flex items-center justify-between px-4 border-b">
+          {sidebarOpen && (
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <span className="font-bold">Quran Admin</span>
+            </div>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <ScrollArea className="flex-1 py-4">
+          <nav className="px-2 space-y-1">
+            {navItems.map((item) => (
+              <Button
+                key={item.id}
+                variant={activeSection === item.id ? 'default' : 'ghost'}
+                className={cn(
+                  "w-full justify-start gap-3",
+                  !sidebarOpen && "justify-center px-0"
+                )}
+                onClick={() => setActiveSection(item.id)}
+              >
+                {item.icon}
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    {item.badge && (
+                      <Badge variant="secondary" className="text-xs">{item.badge}</Badge>
+                    )}
+                  </>
+                )}
+              </Button>
+            ))}
+          </nav>
+        </ScrollArea>
+
+        <div className="p-4 border-t">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {sidebarOpen && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+          </Button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        sidebarOpen ? "ml-64" : "ml-16"
+      )}>
+        <header className="h-16 border-b bg-card/50 backdrop-blur sticky top-0 z-40">
+          <div className="h-full px-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="h-9 w-64 pl-9 pr-4 rounded-lg border bg-background text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="gap-1">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                System Online
+              </Badge>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-6">
+          {renderSection()}
+        </div>
+
+        <footer className="h-12 border-t flex items-center justify-center text-xs text-muted-foreground">
+          <p>Quran App Admin Dashboard v1.0.0 • Built with Next.js 16 • Ready for Production</p>
+        </footer>
+      </main>
+    </div>
+  );
+}

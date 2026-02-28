@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -119,4 +120,113 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Arabic Font Support */
+.font-arabic {
+  font-family: 'Amiri', 'Noto Naskh Arabic', 'Scheherazade New', serif;
+  line-height: 2;
+}
+
+/* RTL Support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* Custom scrollbar for Arabic text */
+.font-arabic::-webkit-scrollbar {
+  width: 8px;
+}
+
+.font-arabic::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.font-arabic::-webkit-scrollbar-thumb {
+  background: oklch(0.708 0 0);
+  border-radius: 4px;
+}
+
+/* Quran text styling */
+.quran-text {
+  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+  font-size: 1.75rem;
+  line-height: 2.5;
+  text-align: right;
+  direction: rtl;
+}
+
+/* Ayah number badge */
+.ayah-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0 0.25rem;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
+  background: oklch(0.97 0 0);
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.dark .ayah-number {
+  background: oklch(0.269 0 0);
+}
+
+/* Bismillah styling */
+.bismillah {
+  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+  font-size: 2rem;
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(to bottom, oklch(0.97 0 0), transparent);
+}
+
+.dark .bismillah {
+  background: linear-gradient(to bottom, oklch(0.269 0 0), transparent);
+}
+
+/* Sajdah indicator */
+.sajdah-indicator {
+  color: oklch(0.577 0.245 27.325);
+  font-size: 1.25rem;
+}
+
+/* Audio player progress bar */
+.audio-progress {
+  height: 4px;
+  background: oklch(0.922 0 0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dark .audio-progress {
+  background: oklch(0.269 0 0);
+}
+
+.audio-progress-fill {
+  height: 100%;
+  background: oklch(0.205 0 0);
+  transition: width 0.3s ease;
+}
+
+.dark .audio-progress-fill {
+  background: oklch(0.922 0 0);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid oklch(0.205 0 0);
+  outline-offset: 2px;
+}
+
+.dark :focus-visible {
+  outline-color: oklch(0.922 0 0);
 }

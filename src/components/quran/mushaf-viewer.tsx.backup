@@ -1,0 +1,917 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import {
+  ChevronRight,
+  ChevronLeft,
+  BookOpen,
+  Bookmark,
+  BookmarkCheck,
+  Moon,
+  Sun,
+  Play,
+  Settings,
+  Search,
+  Copy,
+  Check,
+  Image as ImageIcon,
+  Type,
+  Loader2,
+  Heart,
+  Share2,
+  Volume2,
+  List,
+  BookMarked
+} from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useQuranStore } from '@/stores/quran-store';
+import type { Verse, Surah } from '@/types/quran';
+import { TajweedVerse, TajweedLegend } from './TajweedText';
+import { TtfMushafViewer } from './TtfMushafViewer';
+import { 
+  QuranFrame, 
+  LuxuriousSurahHeader, 
+  LuxuriousBismillah, 
+  LuxuriousVerseNumber,
+  PageNumber,
+  CornerOrnament
+} from './islamic-ornaments';
+
+interface MushafViewerProps {
+  onVerseSelect?: (verse: Verse) => void;
+}
+
+// Arabic numeral converter
+const toArabicNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined || isNaN(num)) return '';
+  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  return num.toString().split('').map(d => arabicNumerals[parseInt(d)]).join('');
+};
+
+// Mushaf Image Page Component
+const MushafImagePage = ({
+  pageNumber,
+  imageUrl,
+  editionId,
+  isDark,
+  onAyahSelect,
+  selectedAyah,
+}: {
+  pageNumber: number;
+  imageUrl: string;
+  editionId: string;
+  isDark: boolean;
+  onAyahSelect?: (surahNumber: number, ayahNumber: number) => void;
+  selectedAyah?: { surahNumber: number; ayahNumber: number } | null;
+}) => {
+  const [ayahs, setAyahs] = useState<Array<{
+    id: string;
+    surahNumber: number;
+    ayahNumber: number;
+    lines: Array<{
+      id: string;
+      lineNumber: number;
+      bounds: { minX: number; maxX: number; minY: number; maxY: number };
+    }>;
+  }>>([]);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [displayDimensions, setDisplayDimensions] = useState({ width: 0, height: 0 });
+  const [hoveredAyah, setHoveredAyah] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const fetchAyahs = async () => {
+      if (!editionId || !pageNumber) return;
+      try {
+        const response = await fetch(`/api/mushaf-ayahs?editionId=${editionId}&pageNumber=${pageNumber}`);
+        const data = await response.json();
+        if (data.success) {
+          setAyahs(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching ayahs:', error);
+      }
+    };
+    fetchAyahs();
+  }, [editionId, pageNumber]);
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+    setDisplayDimensions({ width: img.clientWidth, height: img.clientHeight });
+    setImageLoaded(true);
+  };
+
+  useEffect(() => {
+    const updateDisplayDimensions = () => {
+      if (imageRef.current) {
+        setDisplayDimensions({ width: imageRef.current.clientWidth, height: imageRef.current.clientHeight });
+      }
+    };
+    window.addEventListener('resize', updateDisplayDimensions);
+    return () => window.removeEventListener('resize', updateDisplayDimensions);
+  }, [imageLoaded]);
+
+  const scale = imageDimensions.width > 0 ? displayDimensions.width / imageDimensions.width : 1;
+
+  return (
+    <div className="w-full flex flex-col items-center">
+      <div 
+        ref={containerRef}
+        className={`
+          relative rounded-2xl overflow-hidden
+          ${isDark ? 'bg-slate-800' : 'bg-white'}
+        `}
+        style={{
+          boxShadow: isDark
+            ? '0 0 60px rgba(217, 119, 6, 0.2), 0 25px 50px rgba(0,0,0,0.4)'
+            : '0 0 60px rgba(209, 169, 84, 0.15), 0 25px 50px rgba(0,0,0,0.1)',
+          border: isDark
+            ? '4px solid rgba(217, 119, 6, 0.3)'
+            : '4px solid rgba(209, 169, 84, 0.4)',
+        }}
+      >
+        <CornerOrnament position="tl" isDark={isDark} />
+        <CornerOrnament position="tr" isDark={isDark} />
+        <CornerOrnament position="bl" isDark={isDark} />
+        <CornerOrnament position="br" isDark={isDark} />
+
+        {imageUrl ? (
+          <>
+            <img
+              ref={imageRef}
+              src={imageUrl}
+              alt={`صفحة ${toArabicNumber(pageNumber)}`}
+              className="w-full h-auto"
+              style={{ maxHeight: '80vh', objectFit: 'contain' }}
+              onLoad={handleImageLoad}
+            />
+            
+            {imageLoaded && ayahs.map((ayah) => {
+              const isSelected = selectedAyah && 
+                selectedAyah.surahNumber === ayah.surahNumber && 
+                selectedAyah.ayahNumber === ayah.ayahNumber;
+              const isHovered = hoveredAyah === ayah.id;
+              
+              return ayah.lines.map((line) => (
+                <div
+                  key={`${ayah.id}-${line.id}`}
+                  className={`absolute cursor-pointer transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-amber-400/50' 
+                      : isHovered 
+                        ? 'bg-emerald-400/40'
+                        : 'bg-transparent hover:bg-emerald-400/20'
+                  }`}
+                  style={{
+                    left: line.bounds.minX * scale,
+                    top: line.bounds.minY * scale,
+                    width: (line.bounds.maxX - line.bounds.minX) * scale,
+                    height: (line.bounds.maxY - line.bounds.minY) * scale,
+                  }}
+                  onClick={() => onAyahSelect?.(ayah.surahNumber, ayah.ayahNumber)}
+                  onMouseEnter={() => setHoveredAyah(ayah.id)}
+                  onMouseLeave={() => setHoveredAyah(null)}
+                />
+              ));
+            })}
+          </>
+        ) : (
+          <div className={`w-full h-96 flex items-center justify-center ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+            <div className="text-center">
+              <ImageIcon className={`h-16 w-16 mx-auto mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+              <p className={isDark ? 'text-slate-400' : 'text-gray-500'}>لا توجد صورة لهذه الصفحة</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedAyah && (
+        <div className={`mt-4 px-6 py-3 rounded-full ${isDark ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
+          <span className="text-sm">سورة {selectedAyah.surahNumber} - آية {toArabicNumber(selectedAyah.ayahNumber)}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Simple Mode Toggle - Only 2 options: List vs Mushaf
+const SimpleModeToggle = ({ 
+  viewMode, 
+  onToggle, 
+  isDark,
+}: { 
+  viewMode: 'list' | 'mushaf'; 
+  onToggle: (mode: 'list' | 'mushaf') => void; 
+  isDark: boolean;
+}) => (
+  <div className={`
+    flex items-center gap-1 p-1.5 rounded-2xl
+    ${isDark ? 'bg-slate-800/80 border border-amber-500/20' : 'bg-white/20 border border-white/20'}
+    backdrop-blur-sm
+  `}>
+    <button
+      onClick={() => onToggle('list')}
+      className={`
+        flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all duration-300
+        ${viewMode === 'list' 
+          ? isDark 
+            ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25' 
+            : 'bg-white text-emerald-700 shadow-lg'
+          : isDark
+            ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+            : 'text-white/80 hover:text-white hover:bg-white/10'
+        }
+      `}
+    >
+      <List className="h-4 w-4" />
+      <span>قائمة</span>
+    </button>
+    <button
+      onClick={() => onToggle('mushaf')}
+      className={`
+        flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all duration-300
+        ${viewMode === 'mushaf' 
+          ? isDark 
+            ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25' 
+            : 'bg-white text-emerald-700 shadow-lg'
+          : isDark
+            ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+            : 'text-white/80 hover:text-white hover:bg-white/10'
+        }
+      `}
+    >
+      <BookMarked className="h-4 w-4" />
+      <span>مصحف</span>
+    </button>
+  </div>
+);
+
+export function MushafViewer({ onVerseSelect }: MushafViewerProps) {
+  const {
+    currentSurah,
+    currentVerse,
+    verses,
+    setVerses,
+    setCurrentVerse,
+    setCurrentSurah,
+    mushafViewMode,
+    setMushafViewMode,
+    currentMushafPage,
+    setCurrentMushafPage,
+    selectedEdition,
+    setSelectedEdition,
+    isDarkMode,
+    toggleDarkMode,
+  } = useQuranStore();
+
+  const [surahs, setSurahs] = useState<Surah[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [bookmarkedVerses, setBookmarkedVerses] = useState<Set<string>>(new Set());
+  const [currentJuz, setCurrentJuz] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSettings, setShowSettings] = useState(false);
+  const [currentFontSize, setCurrentFontSize] = useState(32);
+  const [showTajweed, setShowTajweed] = useState(false);
+  
+  // Mushaf editions - both image and TTF types
+  const [mushafEditions, setMushafEditions] = useState<Array<{
+    id: string; 
+    nameArabic: string; 
+    nameEnglish: string; 
+    type: 'image' | 'ttf';
+    isDefault: boolean;
+  }>>([]);
+  const [mushafPageImage, setMushafPageImage] = useState<string>('');
+  const [selectedMushafAyah, setSelectedMushafAyah] = useState<{ surahNumber: number; ayahNumber: number } | null>(null);
+  
+  // Simple view mode: 'list' or 'mushaf'
+  const [simpleViewMode, setSimpleViewMode] = useState<'list' | 'mushaf'>('list');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch surahs on mount
+  useEffect(() => {
+    const fetchSurahs = async () => {
+      try {
+        const response = await fetch('/api/surahs');
+        const data = await response.json();
+        if (data.success) {
+          setSurahs(data.data);
+          if (data.data.length > 0) {
+            setCurrentSurah(data.data[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching surahs:', error);
+      }
+    };
+    fetchSurahs();
+  }, [setCurrentSurah]);
+
+  // Fetch verses when surah changes
+  useEffect(() => {
+    const fetchVerses = async () => {
+      if (!currentSurah) return;
+      setIsLoadingData(true);
+      try {
+        const response = await fetch(`/api/ayah?surahId=${currentSurah.id}`);
+        const data = await response.json();
+        if (data.success) {
+          setVerses(data.data);
+          if (data.data.length > 0) {
+            setCurrentVerse(data.data[0]);
+            setCurrentPage(data.data[0].pageNumber);
+            setCurrentJuz(data.data[0].juzNumber);
+            setCurrentMushafPage(data.data[0].pageNumber);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching verses:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    fetchVerses();
+  }, [currentSurah, setVerses, setCurrentVerse, setCurrentMushafPage]);
+
+  // Fetch mushaf editions (both image and TTF)
+  useEffect(() => {
+    const fetchEditions = async () => {
+      try {
+        // Fetch image editions
+        const imageRes = await fetch('/api/admin/image-mushaf');
+        const imageData = await imageRes.json();
+        
+        // Fetch TTF editions
+        const ttfRes = await fetch('/api/admin/ttf-mushaf');
+        const ttfData = await ttfRes.json();
+        
+        const editions: Array<{
+          id: string;
+          nameArabic: string;
+          nameEnglish: string;
+          type: 'image' | 'ttf';
+          isDefault: boolean;
+        }> = [];
+        
+        if (imageData.success) {
+          imageData.data.forEach((e: {id: string; nameArabic: string; nameEnglish: string; isDefault?: boolean}) => {
+            editions.push({
+              id: e.id,
+              nameArabic: e.nameArabic,
+              nameEnglish: e.nameEnglish,
+              type: 'image',
+              isDefault: e.isDefault || false,
+            });
+          });
+        }
+        
+        if (ttfData.success) {
+          ttfData.data.forEach((e: {id: string; nameArabic: string; nameEnglish: string; isDefault?: boolean}) => {
+            editions.push({
+              id: `ttf-${e.id}`,
+              nameArabic: `${e.nameArabic} (خط)`,
+              nameEnglish: `${e.nameEnglish} (Font)`,
+              type: 'ttf',
+              isDefault: e.isDefault || false,
+            });
+          });
+        }
+        
+        setMushafEditions(editions);
+        
+        // Set default edition (prefer image editions)
+        const defaultEdition = editions.find(e => e.isDefault) || editions.find(e => e.type === 'image') || editions[0];
+        if (defaultEdition) {
+          setSelectedEdition(defaultEdition.id);
+          // Update the store's view mode based on edition type
+          setMushafViewMode(defaultEdition.type === 'image' ? 'mushaf-images' : 'mushaf-ttf');
+        }
+      } catch (error) {
+        console.error('Error fetching mushaf editions:', error);
+      }
+    };
+    fetchEditions();
+  }, [setSelectedEdition, setMushafViewMode]);
+
+  // Fetch mushaf page image when in mushaf mode with image edition
+  useEffect(() => {
+    const edition = mushafEditions.find(e => e.id === selectedEdition);
+    if (simpleViewMode !== 'mushaf' || !selectedEdition || edition?.type !== 'image') return;
+    
+    const fetchPageImage = async () => {
+      try {
+        const response = await fetch(`/api/mushaf-pages?editionId=${selectedEdition}&pageNumber=${currentMushafPage}`);
+        const data = await response.json();
+        if (data.success && data.data) {
+          setMushafPageImage(data.data.imageUrl);
+        }
+      } catch (error) {
+        console.error('Error fetching mushaf page:', error);
+      }
+    };
+    fetchPageImage();
+  }, [simpleViewMode, selectedEdition, currentMushafPage, mushafEditions]);
+
+  const handleVerseClick = useCallback((verse: Verse) => {
+    setCurrentVerse(verse);
+    setCurrentPage(verse.pageNumber);
+    setCurrentJuz(verse.juzNumber);
+    onVerseSelect?.(verse);
+  }, [setCurrentVerse, onVerseSelect]);
+
+  const navigateSurah = useCallback((direction: 'next' | 'prev') => {
+    if (!currentSurah || surahs.length === 0) return;
+    const currentIndex = surahs.findIndex(s => s.id === currentSurah.id);
+    const newIndex = direction === 'next' 
+      ? Math.min(currentIndex + 1, surahs.length - 1)
+      : Math.max(currentIndex - 1, 0);
+    setCurrentSurah(surahs[newIndex]);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentSurah, surahs, setCurrentSurah]);
+
+  const copyToClipboard = useCallback(async (verse: Verse) => {
+    const text = `${verse.textArabic}`;
+    await navigator.clipboard.writeText(text);
+    setCopiedId(verse.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }, []);
+
+  const toggleBookmark = useCallback((verseId: string) => {
+    setBookmarkedVerses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(verseId)) {
+        newSet.delete(verseId);
+      } else {
+        newSet.add(verseId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const navigatePage = useCallback((direction: 'next' | 'prev') => {
+    if (direction === 'next') {
+      setCurrentMushafPage(Math.min(currentMushafPage + 1, 604));
+    } else {
+      setCurrentMushafPage(Math.max(currentMushafPage - 1, 1));
+    }
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentMushafPage, setCurrentMushafPage]);
+
+  // Handle simple view mode change
+  const handleSimpleViewModeChange = useCallback((mode: 'list' | 'mushaf') => {
+    setSimpleViewMode(mode);
+    if (mode === 'mushaf') {
+      setCurrentMushafPage(currentPage || 1);
+    }
+  }, [currentPage, setCurrentMushafPage]);
+
+  // Handle edition change - updates the underlying view mode
+  const handleEditionChange = useCallback((editionId: string) => {
+    setSelectedEdition(editionId);
+    const edition = mushafEditions.find(e => e.id === editionId);
+    if (edition) {
+      setMushafViewMode(edition.type === 'image' ? 'mushaf-images' : 'mushaf-ttf');
+    }
+  }, [mushafEditions, setSelectedEdition, setMushafViewMode]);
+
+  const handleMushafAyahSelect = useCallback(async (surahNumber: number, ayahNumber: number) => {
+    setSelectedMushafAyah({ surahNumber, ayahNumber });
+    try {
+      const response = await fetch(`/api/ayah?surahNumber=${surahNumber}&ayahNumber=${ayahNumber}`);
+      const data = await response.json();
+      if (data.success && data.data.length > 0) {
+        const verse = data.data[0];
+        setCurrentVerse(verse);
+        setCurrentPage(verse.pageNumber);
+        setCurrentJuz(verse.juzNumber);
+        const surah = surahs.find(s => s.number === surahNumber);
+        if (surah) {
+          setCurrentSurah(surah);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching verse:', error);
+    }
+  }, [surahs, setCurrentVerse, setCurrentSurah]);
+
+  useEffect(() => {
+    if (currentVerse && currentSurah && simpleViewMode === 'mushaf') {
+      setSelectedMushafAyah({
+        surahNumber: currentSurah.number,
+        ayahNumber: currentVerse.numberInSurah
+      });
+      if (currentVerse.pageNumber && currentVerse.pageNumber !== currentMushafPage) {
+        setCurrentMushafPage(currentVerse.pageNumber);
+      }
+    }
+  }, [currentVerse, currentSurah, simpleViewMode, currentMushafPage, setCurrentMushafPage]);
+
+  // Get current edition type
+  const currentEdition = mushafEditions.find(e => e.id === selectedEdition);
+  const isImageEdition = currentEdition?.type === 'image';
+
+  return (
+    <div 
+      className={`h-full flex flex-col overflow-hidden transition-colors duration-500 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900' 
+          : 'bg-gradient-to-br from-[#f8f4eb] via-[#fffef8] to-[#f5f0e5]'
+      }`}
+      style={{
+        backgroundImage: isDarkMode 
+          ? 'radial-gradient(ellipse at top, rgba(217, 119, 6, 0.05) 0%, transparent 50%)' 
+          : 'radial-gradient(ellipse at top, rgba(209, 169, 84, 0.08) 0%, transparent 50%)'
+      }}
+    >
+      {/* Luxurious Header */}
+      <header className={`
+        shrink-0 relative overflow-hidden
+        ${isDarkMode 
+          ? 'bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800' 
+          : 'bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800'
+        } text-white
+      `}>
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          }}
+        />
+        
+        <div className={`
+          absolute bottom-0 left-0 right-0 h-1
+          ${isDarkMode ? 'bg-gradient-to-r from-transparent via-amber-500 to-transparent' : 'bg-gradient-to-r from-transparent via-amber-400 to-transparent'}
+        `} />
+
+        <div className="relative z-10 flex items-center justify-between px-4 py-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-12 w-12 text-white hover:bg-white/20 rounded-full transition-all duration-300 hover:scale-110"
+            onClick={() => simpleViewMode === 'list' ? navigateSurah('next') : navigatePage('next')}
+          >
+            <ChevronLeft className="h-7 w-7" />
+          </Button>
+          
+          <div className="flex-1 text-center">
+            <h1 
+              className="text-3xl font-bold drop-shadow-lg"
+              style={{ 
+                fontFamily: "'Scheherazade New', 'Amiri', serif",
+                textShadow: '0 2px 10px rgba(0,0,0,0.3)'
+              }}
+            >
+              {simpleViewMode === 'list' 
+                ? (currentSurah?.nameArabic || '')
+                : `صفحة ${toArabicNumber(currentMushafPage)}`
+              }
+            </h1>
+            <p className="text-sm text-white/80 mt-1 flex items-center justify-center gap-2">
+              {simpleViewMode === 'list' ? (
+                <>
+                  <span>{currentSurah?.nameEnglish}</span>
+                  <span className="w-1 h-1 rounded-full bg-white/40" />
+                  <span>الجزء {toArabicNumber(currentJuz)}</span>
+                  <span className="w-1 h-1 rounded-full bg-white/40" />
+                  <span>صفحة {toArabicNumber(currentPage)}</span>
+                </>
+              ) : (
+                <span>الجزء {toArabicNumber(Math.ceil(currentMushafPage / 20))}</span>
+              )}
+            </p>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-12 w-12 text-white hover:bg-white/20 rounded-full transition-all duration-300 hover:scale-110"
+            onClick={() => simpleViewMode === 'list' ? navigateSurah('prev') : navigatePage('prev')}
+          >
+            <ChevronRight className="h-7 w-7" />
+          </Button>
+        </div>
+
+        {/* Toolbar */}
+        <div className="relative z-10 flex items-center justify-center gap-3 pb-4 flex-wrap">
+          {/* Mode Toggle - List vs Mushaf */}
+          <SimpleModeToggle 
+            viewMode={simpleViewMode} 
+            onToggle={handleSimpleViewModeChange} 
+            isDark={isDarkMode}
+          />
+          
+          {/* Mushaf Edition Selector - Only show when in mushaf mode */}
+          {simpleViewMode === 'mushaf' && mushafEditions.length > 0 && (
+            <Select value={selectedEdition} onValueChange={handleEditionChange}>
+              <SelectTrigger className={`
+                h-10 text-sm w-48 rounded-xl
+                ${isDarkMode 
+                  ? 'bg-slate-800/80 border-amber-500/20 text-white' 
+                  : 'bg-white/20 border-white/20 text-white'
+                }
+                backdrop-blur-sm
+              `}>
+                <SelectValue placeholder="اختر المصحف" />
+              </SelectTrigger>
+              <SelectContent>
+                {mushafEditions.map((edition) => (
+                  <SelectItem key={edition.id} value={edition.id}>
+                    <div className="flex items-center gap-2">
+                      {edition.type === 'image' ? (
+                        <ImageIcon className="h-4 w-4" />
+                      ) : (
+                        <Type className="h-4 w-4" />
+                      )}
+                      {edition.nameArabic}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-all"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-all"
+              onClick={toggleDarkMode}
+            >
+              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-all"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className={`
+          shrink-0 p-5 border-b
+          ${isDarkMode ? 'bg-slate-800/95 border-amber-500/20' : 'bg-white/95 border-emerald-200'}
+          backdrop-blur-lg
+        `}>
+          <div className="max-w-lg mx-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>حجم الخط</span>
+              <span className={`text-sm font-bold ${isDarkMode ? 'text-amber-400' : 'text-emerald-600'}`}>{currentFontSize}px</span>
+            </div>
+            <Slider
+              value={[currentFontSize]}
+              onValueChange={([v]) => setCurrentFontSize(v)}
+              min={20}
+              max={56}
+              step={2}
+              className="w-full"
+            />
+            
+            <div className="flex items-center justify-between pt-2">
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>تلوين أحكام التجويد</span>
+              <button
+                onClick={() => setShowTajweed(!showTajweed)}
+                className={`
+                  relative w-14 h-7 rounded-full transition-all duration-300
+                  ${showTajweed 
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/25' 
+                    : isDarkMode ? 'bg-slate-600' : 'bg-gray-300'
+                  }
+                `}
+              >
+                <span className={`
+                  absolute top-1 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-300
+                  ${showTajweed ? 'left-8' : 'left-1'}
+                `} />
+              </button>
+            </div>
+            
+            {showTajweed && (
+              <div className="pt-2">
+                <TajweedLegend />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div 
+        ref={scrollRef}
+        className={`flex-1 overflow-y-auto overflow-x-hidden ${
+          isDarkMode ? 'bg-slate-900' : 'bg-[#f8f4eb]'
+        }`}
+        style={{
+          backgroundImage: isDarkMode 
+            ? 'radial-gradient(ellipse at center, rgba(217, 119, 6, 0.03) 0%, transparent 70%)' 
+            : 'radial-gradient(ellipse at center, rgba(209, 169, 84, 0.05) 0%, transparent 70%)'
+        }}
+      >
+        <div className={`max-w-4xl mx-auto p-6 ${simpleViewMode === 'mushaf' ? 'flex items-center justify-center min-h-full' : ''}`}>
+          {simpleViewMode === 'mushaf' ? (
+            // Mushaf Mode - Show based on edition type
+            isImageEdition ? (
+              <MushafImagePage
+                pageNumber={currentMushafPage}
+                imageUrl={mushafPageImage}
+                editionId={selectedEdition?.replace('ttf-', '') || ''}
+                isDark={isDarkMode}
+                onAyahSelect={handleMushafAyahSelect}
+                selectedAyah={selectedMushafAyah}
+              />
+            ) : (
+              <TtfMushafViewer
+                pageNumber={currentMushafPage}
+                editionId={selectedEdition?.replace('ttf-', '') || ''}
+                isDark={isDarkMode}
+                onAyahSelect={handleMushafAyahSelect}
+                selectedAyah={selectedMushafAyah}
+              />
+            )
+          ) : (
+            // List Mode - Original verse layout
+            <QuranFrame isDark={isDarkMode}>
+              {/* Surah Header */}
+              {currentSurah && (
+                <LuxuriousSurahHeader 
+                  surahName={currentSurah.nameArabic}
+                  surahNumber={currentSurah.number}
+                  totalAyahs={currentSurah.totalAyahs}
+                  revelationType={currentSurah.revelationType}
+                  isDark={isDarkMode}
+                />
+              )}
+
+              {/* Bismillah */}
+              {currentSurah?.number !== 1 && currentSurah?.number !== 9 && (
+                <LuxuriousBismillah isDark={isDarkMode} />
+              )}
+
+              {/* Verses */}
+              {isLoadingData ? (
+                <div className="space-y-6 py-12">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className={`animate-pulse p-6 rounded-xl ${isDarkMode ? 'bg-slate-700/50' : 'bg-amber-100/30'}`}>
+                      <div className={`h-8 rounded-lg w-3/4 mb-3 ${isDarkMode ? 'bg-slate-600' : 'bg-amber-200/50'}`} />
+                      <div className={`h-6 rounded-lg w-full ${isDarkMode ? 'bg-slate-600' : 'bg-amber-200/50'}`} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-4 space-y-3" dir="rtl">
+                  {verses.map((verse) => (
+                    <div
+                      key={verse.id}
+                      id={`verse-${verse.id}`}
+                      className={`
+                        p-4 rounded-xl cursor-pointer transition-all duration-300
+                        ${currentVerse?.id === verse.id 
+                          ? isDarkMode 
+                            ? 'bg-amber-500/15 ring-2 ring-amber-500/30' 
+                            : 'bg-emerald-100/40 ring-2 ring-emerald-300/40'
+                          : isDarkMode
+                            ? 'hover:bg-slate-700/30'
+                            : 'hover:bg-amber-50/50'
+                        }
+                      `}
+                      onClick={() => handleVerseClick(verse)}
+                    >
+                      {/* Verse Text with Number at the End */}
+                      <p
+                        className="text-right leading-loose group relative inline"
+                        style={{ 
+                          fontSize: `${currentFontSize}px`, 
+                          lineHeight: '2.2',
+                          fontFamily: "'Scheherazade New', 'Amiri', 'Traditional Arabic', serif",
+                          color: isDarkMode ? '#e5e5e5' : '#1a1a1a',
+                        }}
+                      >
+                        <TajweedVerse 
+                          text={verse.textArabic} 
+                          showTajweed={showTajweed}
+                        />
+                        {/* Verse Number at the End */}
+                        <LuxuriousVerseNumber 
+                          number={verse.numberInSurah} 
+                          isDark={isDarkMode}
+                          isSelected={currentVerse?.id === verse.id}
+                        />
+                        
+                        {/* Hover Actions */}
+                        <span className={`
+                          absolute -top-10 left-1/2 -translate-x-1/2 
+                          hidden group-hover:flex items-center gap-1 
+                          px-3 py-2 rounded-xl shadow-2xl z-20
+                          transition-all duration-200
+                          ${isDarkMode ? 'bg-slate-700 border border-amber-500/30' : 'bg-white border border-emerald-200'}
+                        `}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:scale-110 transition-transform"
+                            onClick={(e) => { e.stopPropagation(); copyToClipboard(verse); }}
+                          >
+                            {copiedId === verse.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-8 w-8 hover:scale-110 transition-transform ${bookmarkedVerses.has(verse.id) ? 'text-amber-500' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); toggleBookmark(verse.id); }}
+                          >
+                            {bookmarkedVerses.has(verse.id) ? <Heart className="h-4 w-4 fill-current" /> : <Heart className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:scale-110 transition-transform"
+                          >
+                            <Volume2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:scale-110 transition-transform"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Page Number */}
+              {currentPage && <PageNumber pageNumber={currentPage} isDark={isDarkMode} />}
+
+              {/* Navigation Buttons */}
+              <div className={`
+                flex items-center justify-center gap-8 py-10 mt-8 border-t
+                ${isDarkMode ? 'border-amber-500/20' : 'border-emerald-200'}
+              `}>
+                <Button
+                  className={`
+                    px-8 py-6 rounded-2xl text-base font-medium gap-2
+                    transition-all duration-300 hover:scale-105
+                    ${isDarkMode 
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-900 shadow-lg shadow-amber-500/25' 
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/25'
+                    }
+                  `}
+                  onClick={() => navigateSurah('next')}
+                  disabled={!currentSurah || surahs.findIndex(s => s.id === currentSurah.id) === surahs.length - 1}
+                >
+                  <span>السورة التالية</span>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  className={`
+                    px-8 py-6 rounded-2xl text-base font-medium gap-2
+                    transition-all duration-300 hover:scale-105
+                    ${isDarkMode 
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-900 shadow-lg shadow-amber-500/25' 
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/25'
+                    }
+                  `}
+                  onClick={() => navigateSurah('prev')}
+                  disabled={!currentSurah || surahs.findIndex(s => s.id === currentSurah.id) === 0}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                  <span>السورة السابقة</span>
+                </Button>
+              </div>
+            </QuranFrame>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default MushafViewer;

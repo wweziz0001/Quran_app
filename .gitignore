@@ -49,3 +49,15 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Project specific
+extracted-system/
+temp/
+upload/
+db/*.db
+db/*.db-journal
+.restart
+*.tar
+*.tar.gz
+*.tgz
+*.zip
