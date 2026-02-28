@@ -164,7 +164,67 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get all recitations for a reciter
+    // Get all recitation ayahs for a reciter (verse-level audio files)
+    if (reciterId) {
+      const recitationAyahs = await db.recitationAyah.findMany({
+        where: {
+          Recitation: { reciterId },
+        },
+        include: {
+          Recitation: {
+            include: {
+              Reciter: {
+                select: {
+                  id: true,
+                  nameArabic: true,
+                  nameEnglish: true,
+                  slug: true,
+                },
+              },
+              Surah: {
+                select: {
+                  id: true,
+                  number: true,
+                  nameArabic: true,
+                  nameEnglish: true,
+                },
+              },
+            },
+          },
+          Ayah: {
+            select: {
+              id: true,
+              ayahNumber: true,
+              ayahNumberGlobal: true,
+            },
+          },
+        },
+        orderBy: [{ Ayah: { ayahNumberGlobal: 'asc' } }],
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: recitationAyahs.map(ra => ({
+          id: ra.id,
+          recitationId: ra.recitationId,
+          reciterId: ra.Recitation.reciterId,
+          ayahId: ra.ayahId,
+          surahId: ra.Recitation.surahId,
+          ayahNumber: ra.Ayah.ayahNumber,
+          verseGlobal: ra.Ayah.ayahNumberGlobal,
+          audioUrl: ra.audioUrl,
+          audioFormat: ra.Recitation.format,
+          duration: ra.durationMs ? Math.floor(ra.durationMs / 1000) : null,
+          quality: ra.Recitation.bitrate >= 192 ? 'high' : 'medium',
+          isActive: true,
+          surahName: ra.Recitation.Surah.nameEnglish,
+          surahNameArabic: ra.Recitation.Surah.nameArabic,
+          reciter: ra.Recitation.Reciter,
+        })),
+      });
+    }
+
+    // Get all recitations (surah-level)
     const recitations = await db.recitation.findMany({
       where,
       include: {
@@ -221,15 +281,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE - Delete all recitations for a reciter
+// DELETE - Delete recitations or single audio file
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const reciterId = searchParams.get('reciterId');
     const recitationId = searchParams.get('recitationId');
+    const recitationAyahId = searchParams.get('recitationAyahId');
+
+    // Delete single RecitationAyah (single audio file)
+    if (recitationAyahId) {
+      await db.recitationAyah.delete({
+        where: { id: recitationAyahId },
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: { deleted: 1 },
+      });
+    }
 
     if (recitationId) {
-      // Delete single recitation
+      // Delete single recitation (surah level)
       await db.recitationAyah.deleteMany({
         where: { recitationId },
       });
@@ -270,7 +343,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'reciterId or recitationId is required' },
+      { success: false, error: 'reciterId, recitationId, or recitationAyahId is required' },
       { status: 400 }
     );
   } catch (error) {

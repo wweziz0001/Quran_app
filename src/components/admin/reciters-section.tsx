@@ -82,7 +82,9 @@ interface RecitationData {
   quality?: string;
   isActive: boolean;
   ayahNumber?: number;
+  verseGlobal?: number;
   surahName?: string;
+  surahNameArabic?: string;
 }
 
 const initialFormState = {
@@ -335,16 +337,16 @@ export function RecitersSection() {
     await fetchRecitations(reciter.id);
   };
 
-  // Delete recitation
-  const handleDeleteRecitation = async (recitationId: string) => {
+  // Delete single audio file (RecitationAyah)
+  const handleDeleteRecitation = async (recitationAyahId: string) => {
     try {
-      const response = await fetch(`/api/recitations?recitationId=${recitationId}`, {
+      const response = await fetch(`/api/recitations?recitationAyahId=${recitationAyahId}`, {
         method: 'DELETE',
       });
       const result = await response.json();
 
       if (result.success) {
-        toast.success('Audio deleted');
+        toast.success('Audio file deleted');
         if (selectedReciter) {
           fetchRecitations(selectedReciter.id);
         }
@@ -886,10 +888,10 @@ export function RecitersSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-center">#</TableHead>
                     <TableHead>Surah</TableHead>
-                    <TableHead>Ayah</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Size</TableHead>
+                    <TableHead className="text-center">Ayah</TableHead>
+                    <TableHead>Audio URL</TableHead>
                     <TableHead>Quality</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -897,12 +899,27 @@ export function RecitersSection() {
                 <TableBody>
                   {recitations.map((recitation) => (
                     <TableRow key={recitation.id}>
-                      <TableCell>
-                        <Badge variant="outline">{recitation.surahName || `Surah ${recitation.surahId}`}</Badge>
+                      <TableCell className="text-center font-mono">
+                        <Badge variant="outline" className="font-mono">
+                          {recitation.verseGlobal || recitation.ayahId}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{recitation.ayahNumber || recitation.ayahId}</TableCell>
-                      <TableCell>{formatDuration(recitation.duration)}</TableCell>
-                      <TableCell>{formatFileSize(recitation.fileSize)}</TableCell>
+                      <TableCell>
+                        <span className="text-sm">{recitation.surahName || `Surah ${recitation.surahId}`}</span>
+                        {recitation.surahNameArabic && (
+                          <span className="text-xs text-muted-foreground mr-2" dir="rtl">
+                            {recitation.surahNameArabic}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-mono">
+                        {recitation.ayahNumber || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-2 py-1 rounded truncate max-w-[200px] block">
+                          {recitation.audioUrl ? recitation.audioUrl.split('/').pop() : '-'}
+                        </code>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{recitation.quality || 'high'}</Badge>
                       </TableCell>

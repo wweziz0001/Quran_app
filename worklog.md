@@ -247,3 +247,46 @@ Key files modified:
 - `/src/app/api/recitations/import-bulk/route.ts` - تحسين جذري
 - `/VERSION` - تحديث إلى 1.2.3
 - `/changelog/v1.2.3.md` - توثيق الإصدار
+
+---
+Task ID: 1.2.4
+Agent: Main Agent
+Task: إصلاح عرض الملفات الصوتية على مستوى الآية
+
+Work Log:
+1. **تشخيص المشكلة**:
+   - واجهة استعراض الملفات الصوتية للقارئ كانت تعرض الملفات على مستوى السورة
+   - المستخدم يتوقع رؤية كل ملف صوتي لكل آية بشكل منفصل
+
+2. **تحليل السبب**:
+   - API endpoint `/api/recitations` كان يجلب من جدول `Recitation` (مستوى السورة)
+   - بينما الملفات الصوتية الفعلية في جدول `RecitationAyah` (مستوى الآية)
+
+3. **الإصلاحات المطبقة**:
+   - تحديث GET endpoint في `/api/recitations/route.ts`:
+     - عند طلب `reciterId`، يجلب `RecitationAyah` مع علاقاته
+     - يرجع: verseGlobal, ayahNumber, surahName, surahNameArabic, audioUrl
+   - تحديث DELETE endpoint:
+     - إضافة دعم `recitationAyahId` لحذف ملف صوتي واحد
+   - تحديث الواجهة `reciters-section.tsx`:
+     - تحديث RecitationData interface
+     - تحديث جدول العرض لإظهار: رقم الآية العام، اسم السورة، رقم الآية
+     - تحديث دالة handleDeleteRecitation لاستخدام recitationAyahId
+
+4. **توثيق الإصدار**:
+   - تحديث VERSION إلى 1.2.4
+   - إنشاء changelog/v1.2.4.md
+   - تحديث changelog/CHANGELOG.md
+   - تحديث worklog.md
+
+Stage Summary:
+- ✅ الملفات الصوتية تُعرض الآن على مستوى الآية
+- ✅ يظهر: رقم الآية العام (1-6236)، اسم السورة، رقم الآية في السورة
+- ✅ يمكن حذف ملف صوتي واحد
+- ✅ التوثيق الكامل
+
+Key files modified:
+- `/src/app/api/recitations/route.ts` - تغيير الاستعلام + تحديث DELETE
+- `/src/components/admin/reciters-section.tsx` - تحديث الجدول والدوال
+- `/VERSION` - تحديث إلى 1.2.4
+- `/changelog/v1.2.4.md` - توثيق الإصدار (جديد)
