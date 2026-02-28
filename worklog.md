@@ -290,3 +290,75 @@ Key files modified:
 - `/src/components/admin/reciters-section.tsx` - تحديث الجدول والدوال
 - `/VERSION` - تحديث إلى 1.2.4
 - `/changelog/v1.2.4.md` - توثيق الإصدار (جديد)
+
+---
+Task ID: 1.2.5
+Agent: Main Agent
+Task: إنشاء نظام إدارة قواعد بيانات متكامل (Enterprise-Grade Database Management System)
+
+Work Log:
+1. **تحديث Prisma Schema**:
+   - إضافة AuditLog للتدقيق
+   - إضافة SavedQuery لحفظ الاستعلامات
+   - إضافة BackupRecord لإدارة النسخ الاحتياطي
+   - إضافة QueryHistory لسجل الاستعلامات
+
+2. **إنشاء Zustand Store**:
+   - حالة الاتصال (connectionStatus)
+   - قائمة الجداول (tables)
+   - محرر الاستعلامات (tabs, queryHistory)
+   - النسخ الاحتياطي (backups)
+   - سجلات التدقيق (auditLogs)
+   - الإحصائيات (metrics)
+
+3. **إنشاء API Endpoints**:
+   - `/api/admin/db/tables` - قائمة الجداول
+   - `/api/admin/db/query` - تنفيذ SQL
+   - `/api/admin/db/metrics` - الإحصائيات
+   - `/api/admin/db/health` - فحص الاتصال
+   - `/api/admin/db/backup` - النسخ الاحتياطي
+   - `/api/admin/db/audit-logs` - سجلات التدقيق
+   - `/api/admin/db/saved-queries` - الاستعلامات المحفوظة
+
+4. **بناء الواجهة**:
+   - DatabaseManager - المكون الرئيسي
+   - DashboardTab - لوحة الإحصائيات
+   - TablesTab - إدارة الجداول
+   - QueryEditorTab - محرر SQL
+   - ImportExportTab - الاستيراد/التصدير
+   - BackupTab - النسخ الاحتياطي
+   - AuditLogsTab - سجلات التدقيق
+
+5. **الأمان**:
+   - حماية من DROP, GRANT, REVOKE
+   - تحذيرات لـ DELETE, UPDATE, TRUNCATE
+   - تسجيل جميع العمليات
+
+6. **التوثيق**:
+   - تحديث VERSION إلى 1.2.5
+   - إنشاء changelog/v1.2.5.md
+   - تحديث CHANGELOG.md
+   - إنشاء docs/DATABASE_MANAGEMENT_SYSTEM_SPEC.md
+
+Stage Summary:
+- ✅ نظام إدارة قواعد بيانات متكامل
+- ✅ Dashboard مع إحصائيات
+- ✅ إدارة الجداول
+- ✅ محرر SQL محمي
+- ✅ استيراد/تصدير
+- ✅ نسخ احتياطي
+- ✅ سجلات تدقيق
+- ⏳ Schema Visualizer (مؤجل)
+
+Key files created:
+- `/src/stores/database-store.ts` - Zustand store
+- `/src/components/admin/database/database-manager.tsx` - المكون الرئيسي
+- `/src/app/api/admin/db/tables/route.ts`
+- `/src/app/api/admin/db/query/route.ts`
+- `/src/app/api/admin/db/metrics/route.ts`
+- `/src/app/api/admin/db/health/route.ts`
+- `/src/app/api/admin/db/backup/route.ts`
+- `/src/app/api/admin/db/audit-logs/route.ts`
+- `/src/app/api/admin/db/saved-queries/route.ts`
+- `/docs/DATABASE_MANAGEMENT_SYSTEM_SPEC.md`
+- `/changelog/v1.2.5.md`

@@ -15,6 +15,7 @@ import { useTheme } from 'next-themes';
 // Import section components
 import { ArchitectureSection } from '@/components/admin/architecture-section';
 import { DatabaseBrowser } from '@/components/admin/database-browser';
+import { DatabaseManager } from '@/components/admin/database/database-manager';
 import { AndroidSection } from '@/components/admin/android-section';
 import { FilesSection } from '@/components/admin/files-section';
 import { ApiSection } from '@/components/admin/api-section';
@@ -28,7 +29,7 @@ import { QuranManagementSection } from '@/components/admin/quran-management-sect
 import { MushafEditionsSection } from '@/components/admin/mushaf-editions-section';
 import { ImportSection } from '@/components/admin/import-section';
 
-type Section = 'dashboard' | 'architecture' | 'database' | 'api' | 'reciters' | 'tafsir' | 'quran' | 'mushafs' | 'import' | 'settings' | 'android' | 'deployment' | 'security' | 'files';
+type Section = 'dashboard' | 'architecture' | 'database' | 'db-manager' | 'api' | 'reciters' | 'tafsir' | 'quran' | 'mushafs' | 'import' | 'settings' | 'android' | 'deployment' | 'security' | 'files';
 
 interface NavItem {
   id: Section;
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { id: 'android', label: 'Android', icon: <Smartphone className="h-4 w-4" /> },
   { id: 'deployment', label: 'Deployment', icon: <Cloud className="h-4 w-4" /> },
   { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
+  { id: 'db-manager', label: 'DB Manager', icon: <Database className="h-4 w-4" />, badge: 'NEW' },
   { id: 'database', label: 'Database', icon: <Database className="h-4 w-4" />, badge: 'BROWSER' },
   { id: 'files', label: 'Files', icon: <FolderOpen className="h-4 w-4" />, badge: 'EDITOR'  },
 ];
@@ -65,6 +67,7 @@ export default function AdminDashboard() {
       case 'dashboard': return <DashboardSection />;
       case 'architecture': return <ArchitectureSection />;
       case 'database': return <DatabaseBrowser />;
+      case 'db-manager': return <DatabaseManager />;
       case 'api': return <ApiSection />;
       case 'quran': return <QuranManagementSection />;
       case 'mushafs': return <MushafEditionsSection />;

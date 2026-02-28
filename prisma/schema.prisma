@@ -515,3 +515,79 @@ model UserSetting {
   updatedAt            DateTime
   User                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ==================== Database Management System Models ====================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  userId       String?
+  userName     String?
+  userRole     String?
+  action       String
+  resourceType String
+  resourceName String
+  resourceId   String?
+  details      String?
+  query        String?
+  affectedRows Int?
+  executionTime Float?
+  ipAddress    String?
+  userAgent    String?
+  status       String   @default("success")
+  errorMessage String?
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
+}
+
+model SavedQuery {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  query       String
+  tags        String?
+  isFavorite  Boolean  @default(false)
+  useCount    Int      @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastUsedAt  DateTime?
+
+  @@index([name])
+  @@index([isFavorite])
+}
+
+model BackupRecord {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   @default("full")
+  size         Int      @default(0)
+  status       String   @default("pending")
+  duration     Int?
+  checksum     String?
+  location     String?
+  errorMessage String?
+  metadata     String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model QueryHistory {
+  id             String   @id @default(cuid())
+  query          String
+  executionTime  Float
+  rowCount       Int?
+  status         String   @default("success")
+  errorMessage   String?
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
