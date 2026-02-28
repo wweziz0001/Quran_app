@@ -65,4 +65,3 @@ prompt
 *.tar.gz
 *.tgz
 *.zip
-db/*.db
