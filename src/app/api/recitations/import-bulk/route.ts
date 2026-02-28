@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         if (!recitation) {
           recitation = await db.recitation.create({
             data: {
+              id: `${reciter.id}-${ayah.surahId}-${Date.now()}`,
               surahId: ayah.surahId,
               reciterId: reciter.id,
               style: 'murattal',
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
               format: 'mp3',
               audioUrl: '',
               isActive: true,
+              updatedAt: new Date(),
             },
           });
         }
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
         // Create recitation ayah
         await db.recitationAyah.create({
           data: {
+            id: `${recitation.id}-${ayah.id}-${Date.now()}`,
             recitationId: recitation.id,
             ayahId: ayah.id,
             startTime: 0,

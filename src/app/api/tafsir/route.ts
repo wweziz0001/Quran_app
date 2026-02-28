@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
     // Create tafsir source
     const source = await db.tafsirSource.create({
       data: {
+        id: `tafsir-${slug}-${Date.now()}`,
         nameArabic,
         nameEnglish,
         slug,
@@ -144,6 +145,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         isDefault: isDefault ?? false,
         isActive: isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

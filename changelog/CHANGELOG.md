@@ -18,6 +18,32 @@
 
 ---
 
+## [1.2.2] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح #1 - قاعدة البيانات للقراءة فقط (readonly database)
+**المشكلة:** لم تكن عمليات الكتابة تعمل في قاعدة البيانات
+
+**السبب:** صلاحيات الملف `db/custom.db` لا تسمح بالكتابة
+
+**الحل:** `chmod 666 db/custom.db`
+
+---
+
+#### إصلاح #2 - استيراد الملفات الصوتية لا يعمل
+**المشكلة:** عند محاولة استيراد الملفات الصوتية للقراء، تظهر رسالة خطأ
+
+**السبب:** نماذج Prisma تتطلب حقول `id` و `updatedAt` عند إنشاء سجلات جديدة
+
+**الملفات المتأثرة:**
+- `src/app/api/recitations/import-bulk/route.ts` - إضافة id و updatedAt
+- `src/app/api/admin/import/route.ts` - إضافة id و updatedAt + تصحيح Recitation
+- `src/app/api/tafsir/route.ts` - إضافة id و updatedAt
+- `src/app/api/settings/route.ts` - إضافة id و updatedAt
+
+---
+
 ## [1.2.1] - 2026-02-28
 
 ### 🔧 الإصلاحات

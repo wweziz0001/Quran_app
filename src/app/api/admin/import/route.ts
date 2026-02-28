@@ -374,6 +374,7 @@ async function importTafsir(): Promise<{ imported: number; message: string }> {
     if (!source) {
       source = await db.tafsirSource.create({
         data: {
+          id: 'tafsir-ibn-kathir',
           nameArabic: 'تفسير ابن كثير',
           nameEnglish: 'Tafsir Ibn Kathir',
           slug: 'ibn-kathir',
@@ -382,6 +383,7 @@ async function importTafsir(): Promise<{ imported: number; message: string }> {
           language: 'ar',
           isDefault: true,
           isActive: true,
+          updatedAt: new Date(),
         },
       });
     }
@@ -548,7 +550,7 @@ async function importAudioForReciter(
       const existing = await db.recitationAyah.findFirst({
         where: {
           ayahId: ayah.id,
-          recitation: {
+          Recitation: {
             reciterId: reciter.id,
           }
         }
@@ -574,6 +576,7 @@ async function importAudioForReciter(
       if (!recitation) {
         recitation = await db.recitation.create({
           data: {
+            id: `${reciter.id}-${ayah.surahId}-${Date.now()}`,
             surahId: ayah.surahId,
             reciterId: reciter.id,
             style: 'murattal',
@@ -581,6 +584,7 @@ async function importAudioForReciter(
             format: 'mp3',
             audioUrl: '',
             isActive: true,
+            updatedAt: new Date(),
           }
         });
       }
@@ -588,6 +592,7 @@ async function importAudioForReciter(
       // Create recitation ayah
       await db.recitationAyah.create({
         data: {
+          id: `${reciter.id}-${ayah.id}-${Date.now()}`,
           recitationId: recitation.id,
           ayahId: ayah.id,
           startTime: 0,

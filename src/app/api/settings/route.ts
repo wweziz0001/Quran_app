@@ -68,10 +68,12 @@ export async function PUT(request: NextRequest) {
       // Create new setting
       const created = await db.appSetting.create({
         data: {
+          id: `setting-${key}-${Date.now()}`,
           key,
           value: String(value),
           description: '',
           isPublic: false,
+          updatedAt: new Date(),
         },
       });
 
@@ -122,10 +124,12 @@ export async function POST(request: NextRequest) {
       } else {
         await db.appSetting.create({
           data: {
+            id: `setting-${setting.key}-${Date.now()}`,
             key: setting.key,
             value: setting.value,
             description: '',
             isPublic: false,
+            updatedAt: new Date(),
           },
         });
       }
