@@ -64,7 +64,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { nameArabic, nameEnglish, slug, country, style, biography, isActive, isFeatured } = body;
+    const { nameArabic, nameEnglish, slug, country, style, biography, isActive, isFeatured, apiIdentifier } = body;
 
     // Check if reciter exists
     const existingReciter = await db.reciter.findUnique({
@@ -99,6 +99,7 @@ export async function PUT(
         ...(nameArabic && { nameArabic }),
         ...(nameEnglish && { nameEnglish }),
         ...(slug && { slug }),
+        ...(apiIdentifier !== undefined && { apiIdentifier }),
         country: country !== undefined ? country : existingReciter.country,
         bio: biography !== undefined ? biography : existingReciter.bio,
         isActive: isActive !== undefined ? isActive : existingReciter.isActive,
@@ -115,6 +116,7 @@ export async function PUT(
         nameArabic: reciter.nameArabic,
         nameEnglish: reciter.nameEnglish,
         slug: reciter.slug,
+        apiIdentifier: reciter.apiIdentifier,
         country: reciter.country,
         isActive: reciter.isActive,
         isFeatured: reciter.popularity >= 90,
