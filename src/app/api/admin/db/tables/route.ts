@@ -41,17 +41,13 @@ export async function GET() {
             primaryKey: col.pk > 0,
           }));
 
-          // Get table size (approximate for SQLite)
-          const sizeResult = await db.$queryRaw<Array<{ pgsize: number }>>`
-            SELECT pgsize FROM dbstat WHERE name = ${table.name} LIMIT 1
-          `.catch(() => []);
-
-          const sizeBytes = sizeResult[0]?.pgsize || 0;
+          // Skip size calculation as dbstat may not be available
+          const sizeBytes = 0;
 
           return {
             name: table.name,
             type: table.type as 'table' | 'view',
-            rowCount,
+            rowCount: Number(rowCount),
             sizeBytes,
             columns,
           };

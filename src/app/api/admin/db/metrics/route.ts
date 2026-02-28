@@ -16,7 +16,7 @@ export async function GET() {
     let totalRows = 0;
     let totalSize = 0;
 
-    // Count rows and size for each table
+    // Count rows for each table
     for (const table of tablesResult) {
       try {
         const countResult = await db.$queryRaw<Array<{ count: number }>>`
@@ -28,28 +28,37 @@ export async function GET() {
       }
     }
 
-    // Get database file size
+    // Get database file size from file system
     try {
-      const sizeResult = await db.$queryRaw<Array<{ pgsize: number }>>`
-        SELECT SUM(pgsize) as pgsize FROM dbstat
-      `;
-      totalSize = sizeResult[0]?.pgsize || 0;
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const dbPath = path.join(process.cwd(), 'db', 'custom.db');
+      const stats = await fs.stat(dbPath);
+      totalSize = stats.size;
     } catch {
-      // dbstat might not be available
+      // Can't get file size
     }
 
     // Get query statistics from QueryHistory
-    const queryStats = await db.queryHistory.aggregate({
-      _count: true,
-      _avg: { executionTime: true },
-    });
+    let queryCount = 0;
+    let avgQueryTime = 0;
+    try {
+      const queryStats = await db.queryHistory.aggregate({
+        _count: true,
+        _avg: { executionTime: true },
+      });
+      queryCount = queryStats._count;
+      avgQueryTime = queryStats._avg.executionTime || 0;
+    } catch {
+      // QueryHistory table might not exist yet
+    }
 
     const metrics = {
       totalTables,
       totalRows,
-      totalSize,
-      queryCount: queryStats._count,
-      avgQueryTime: queryStats._avg.executionTime || 0,
+      totalSize: Number(totalSize),
+      queryCount,
+      avgQueryTime,
     };
 
     return NextResponse.json({

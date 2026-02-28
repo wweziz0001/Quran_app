@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -165,23 +165,28 @@ function TablesTab({ tables, isLoading }: { tables: any[]; isLoading: boolean })
 
   const filteredTables = tables.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const fetchTableData = useCallback(async (tableName: string) => {
-    setTableData(prev => ({ ...prev, loading: true }));
-    try {
-      const response = await fetch(`/api/admin/database/data/${tableName}?limit=50`);
-      const result = await response.json();
-      if (result.success) {
-        setTableData({ data: result.data, columns: result.columns, loading: false });
-      }
-    } catch {
-      toast.error('Failed to fetch table data');
-      setTableData(prev => ({ ...prev, loading: false }));
-    }
-  }, []);
-
   useEffect(() => {
-    if (selectedTable) fetchTableData(selectedTable.name);
-  }, [selectedTable, fetchTableData]);
+    // Fetch table data when selected table changes
+    const loadTableData = async () => {
+      if (!selectedTable) return;
+      setTableData(prev => ({ ...prev, loading: true }));
+      try {
+        const response = await fetch(`/api/admin/database/data/${selectedTable.name}?limit=50`);
+        const result = await response.json();
+        if (result.success) {
+          // API returns 'fields', we use it as 'columns'
+          const columns = result.fields || result.columns || [];
+          setTableData({ data: result.data || [], columns, loading: false });
+        } else {
+          setTableData({ data: [], columns: [], loading: false });
+        }
+      } catch {
+        toast.error('Failed to fetch table data');
+        setTableData({ data: [], columns: [], loading: false });
+      }
+    };
+    loadTableData();
+  }, [selectedTable]);
 
   return (
     <div className="h-full flex">
@@ -214,13 +219,17 @@ function TablesTab({ tables, isLoading }: { tables: any[]; isLoading: boolean })
             <ScrollArea className="flex-1">
               {tableData.loading ? (
                 <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              ) : tableData.data.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center"><Table2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No data found</p></div>
+                </div>
               ) : (
                 <div className="p-4">
                   <Table>
-                    <TableHeader><TableRow>{tableData.columns.map((col: any) => (<TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>))}</TableRow></TableHeader>
+                    <TableHeader><TableRow>{(tableData.columns || []).map((col: any) => (<TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>))}</TableRow></TableHeader>
                     <TableBody>
-                      {tableData.data.map((row: any, i: number) => (
-                        <TableRow key={i}>{tableData.columns.map((col: any) => (<TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">{String(row[col.name] ?? 'NULL')}</TableCell>))}</TableRow>
+                      {(tableData.data || []).map((row: any, i: number) => (
+                        <TableRow key={i}>{(tableData.columns || []).map((col: any) => (<TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">{String(row[col.name] ?? 'NULL')}</TableCell>))}</TableRow>
                       ))}
                     </TableBody>
                   </Table>
@@ -304,6 +313,58 @@ function ImportExportTab({ tables }: { tables: any[] }) {
     finally { setProcessing(false); }
   };
 
+  const handleExport = async () => {
+    if (!exportTable) { toast.error('Please select a table to export'); return; }
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/admin/database/data/${exportTable}?limit=10000`);
+      const result = await response.json();
+      if (result.success) {
+        let content: string;
+        let filename: string;
+        let mimeType: string;
+
+        if (exportFormat === 'json') {
+          content = JSON.stringify(result.data, null, 2);
+          filename = `${exportTable}.json`;
+          mimeType = 'application/json';
+        } else if (exportFormat === 'csv') {
+          const headers = result.fields?.map((f: any) => f.name).join(',') || '';
+          const rows = result.data.map((row: any) =>
+            Object.values(row).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
+          ).join('\n');
+          content = headers + '\n' + rows;
+          filename = `${exportTable}.csv`;
+          mimeType = 'text/csv';
+        } else {
+          // SQL format
+          const inserts = result.data.map((row: any) => {
+            const cols = Object.keys(row).join(', ');
+            const vals = Object.values(row).map(v =>
+              v === null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`
+            ).join(', ');
+            return `INSERT INTO ${exportTable} (${cols}) VALUES (${vals});`;
+          }).join('\n');
+          content = inserts;
+          filename = `${exportTable}.sql`;
+          mimeType = 'text/plain';
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${result.data.length} rows`);
+      } else {
+        toast.error(result.error || 'Export failed');
+      }
+    } catch { toast.error('Export failed'); }
+    finally { setProcessing(false); }
+  };
+
   return (
     <ScrollArea className="h-full p-6">
       <div className="grid gap-6 md:grid-cols-2">
@@ -320,7 +381,7 @@ function ImportExportTab({ tables }: { tables: any[] }) {
           <CardContent className="space-y-4">
             <div><Label>Table</Label><select className="w-full mt-1 p-2 border rounded" value={exportTable} onChange={(e) => setExportTable(e.target.value)}><option value="">Select table...</option>{tables.map((t) => (<option key={t.name} value={t.name}>{t.name}</option>))}</select></div>
             <div><Label>Format</Label><div className="flex gap-2 mt-2">{['json', 'csv', 'sql'].map((fmt) => (<Button key={fmt} variant={exportFormat === fmt ? 'default' : 'outline'} size="sm" onClick={() => setExportFormat(fmt)}>{fmt.toUpperCase()}</Button>))}</div></div>
-            <Button className="w-full"><Download className="h-4 w-4 mr-2" />Export</Button>
+            <Button onClick={handleExport} disabled={processing} className="w-full">{processing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}Export</Button>
           </CardContent>
         </Card>
       </div>

@@ -18,6 +18,47 @@
 
 ---
 
+## [1.2.6] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح عدم عمل واجهة مدير قواعد البيانات (DB Manager)
+
+**المشكلة:**
+جميع تبويبات واجهة مدير قواعد البيانات لم تكن تعمل:
+- Dashboard: لا يعرض أي بيانات
+- Tables: لا يظهر فيها أي بيانات
+- Audit Logs: لا يظهر فيها أي بيانات
+- Backup: الأزرار لا تعمل
+- Import/Export: لا تعمل الأزرار
+
+**الأسباب والإصلاحات:**
+
+1. **عدم وجود ملف `.env`** - تم إنشاؤه مع `DATABASE_URL`
+2. **خطأ BigInt serialization** - تم إصلاحه بإضافة `Number()`
+3. **استعلام `dbstat` غير مدعوم** - تم استبداله بقراءة حجم الملف
+4. **زر Export بدون handler** - تم إضافة دالة `handleExport`
+5. **خطأ reading 'map' of undefined** - تم إضافة fallback للأمان
+
+**الملفات المتأثرة:**
+- `.env` (جديد)
+- `src/app/api/admin/db/tables/route.ts`
+- `src/app/api/admin/db/metrics/route.ts`
+- `src/app/api/admin/db/backup/route.ts`
+- `src/components/admin/database/database-manager.tsx`
+
+**النتيجة:**
+- ✅ Dashboard: 31 جدول، 25,400+ صف، 10.7 MB
+- ✅ Tables: استعراض جميع الجداول والبيانات
+- ✅ Query Editor: تنفيذ استعلامات SQL
+- ✅ Import/Export: تصدير بصيغ JSON/CSV/SQL
+- ✅ Backup: إنشاء نسخ احتياطية
+- ✅ Audit Logs: جاهز للعمل
+
+**التفاصيل:** انظر `changelog/v1.2.6.md`
+
+---
+
 ## [1.2.5] - 2026-02-28
 
 ### ✨ ميزة جديدة

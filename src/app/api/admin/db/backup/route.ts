@@ -4,6 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 
 const execAsync = promisify(exec);
 
@@ -131,7 +132,6 @@ export async function POST(request: NextRequest) {
 }
 
 async function calculateChecksum(filePath: string): Promise<string> {
-  const crypto = require('crypto');
   const content = await fs.readFile(filePath);
   return crypto.createHash('md5').update(content).digest('hex');
 }
