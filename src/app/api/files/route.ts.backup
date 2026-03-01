@@ -1,0 +1,316 @@
+import { NextRequest, NextResponse } from 'next/server';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const PROJECT_ROOT = process.cwd();
+
+// Allowed directories for security
+const ALLOWED_DIRS = [
+  'src',
+  'prisma',
+  'docs',
+  'public',
+  'components.json',
+  'package.json',
+  'tsconfig.json',
+  'tailwind.config.ts',
+  'next.config.ts',
+  '.env.example',
+];
+
+function isPathAllowed(filePath: string): boolean {
+  const relativePath = path.relative(PROJECT_ROOT, filePath);
+  // Check if path starts with any allowed directory
+  return ALLOWED_DIRS.some(dir => relativePath.startsWith(dir) || relativePath === dir);
+}
+
+function getFileTree(dir: string, basePath: string = ''): FileNode[] {
+  const items: FileNode[] = [];
+  
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.join(basePath, entry.name);
+      
+      // Skip hidden files and node_modules
+      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === '.next') {
+        continue;
+      }
+      
+      if (entry.isDirectory()) {
+        items.push({
+          name: entry.name,
+          type: 'directory',
+          path: relativePath,
+          children: getFileTree(fullPath, relativePath),
+        });
+      } else {
+        const ext = path.extname(entry.name);
+        items.push({
+          name: entry.name,
+          type: 'file',
+          path: relativePath,
+          extension: ext,
+          size: fs.statSync(fullPath).size,
+        });
+      }
+    }
+  } catch (error) {
+    console.error(`Error reading directory ${dir}:`, error);
+  }
+  
+  // Sort: directories first, then files
+  return items.sort((a, b) => {
+    if (a.type === 'directory' && b.type === 'file') return -1;
+    if (a.type === 'file' && b.type === 'directory') return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+interface FileNode {
+  name: string;
+  type: 'file' | 'directory';
+  path: string;
+  extension?: string;
+  size?: number;
+  children?: FileNode[];
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    const filePath = searchParams.get('path');
+
+    if (action === 'tree') {
+      const tree = getFileTree(PROJECT_ROOT);
+      return NextResponse.json({
+        success: true,
+        data: tree,
+      });
+    }
+
+    if (action === 'read' && filePath) {
+      const fullPath = path.join(PROJECT_ROOT, filePath);
+      
+      // Security check
+      if (!isPathAllowed(fullPath)) {
+        return NextResponse.json(
+          { success: false, error: 'Access denied' },
+          { status: 403 }
+        );
+      }
+
+      if (!fs.existsSync(fullPath)) {
+        return NextResponse.json(
+          { success: false, error: 'File not found' },
+          { status: 404 }
+        );
+      }
+
+      const stats = fs.statSync(fullPath);
+      
+      if (stats.isDirectory()) {
+        const children = getFileTree(fullPath, filePath);
+        return NextResponse.json({
+          success: true,
+          data: {
+            type: 'directory',
+            children,
+          },
+        });
+      }
+
+      // Check file size (max 1MB)
+      if (stats.size > 1024 * 1024) {
+        return NextResponse.json(
+          { success: false, error: 'File too large' },
+          { status: 400 }
+        );
+      }
+
+      const content = fs.readFileSync(fullPath, 'utf-8');
+      const ext = path.extname(fullPath);
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          type: 'file',
+          content,
+          extension: ext,
+          size: stats.size,
+          lastModified: stats.mtime,
+        },
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Invalid action' },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error('File API error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { path: filePath, content } = body;
+
+    if (!filePath || content === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'Path and content are required' },
+        { status: 400 }
+      );
+    }
+
+    const fullPath = path.join(PROJECT_ROOT, filePath);
+    
+    // Security check
+    if (!isPathAllowed(fullPath)) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return NextResponse.json(
+        { success: false, error: 'File not found' },
+        { status: 404 }
+      );
+    }
+
+    // Create backup
+    const backupPath = fullPath + '.backup';
+    fs.copyFileSync(fullPath, backupPath);
+
+    // Write new content
+    fs.writeFileSync(fullPath, content, 'utf-8');
+
+    return NextResponse.json({
+      success: true,
+      message: 'File saved successfully',
+      backup: backupPath,
+    });
+  } catch (error) {
+    console.error('File write error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to save file' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { path: filePath, type } = body;
+
+    if (!filePath || !type) {
+      return NextResponse.json(
+        { success: false, error: 'Path and type are required' },
+        { status: 400 }
+      );
+    }
+
+    const fullPath = path.join(PROJECT_ROOT, filePath);
+    
+    // Security check
+    if (!isPathAllowed(fullPath)) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    if (type === 'directory') {
+      fs.mkdirSync(fullPath, { recursive: true });
+      return NextResponse.json({
+        success: true,
+        message: 'Directory created',
+      });
+    }
+
+    if (type === 'file') {
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(fullPath, '', 'utf-8');
+      return NextResponse.json({
+        success: true,
+        message: 'File created',
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Invalid type' },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error('File create error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const filePath = searchParams.get('path');
+
+    if (!filePath) {
+      return NextResponse.json(
+        { success: false, error: 'Path is required' },
+        { status: 400 }
+      );
+    }
+
+    const fullPath = path.join(PROJECT_ROOT, filePath);
+    
+    // Security check
+    if (!isPathAllowed(fullPath)) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      return NextResponse.json(
+        { success: false, error: 'Not found' },
+        { status: 404 }
+      );
+    }
+
+    const stats = fs.statSync(fullPath);
+    
+    if (stats.isDirectory()) {
+      fs.rmSync(fullPath, { recursive: true });
+    } else {
+      fs.unlinkSync(fullPath);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Deleted successfully',
+    });
+  } catch (error) {
+    console.error('File delete error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete' },
+      { status: 500 }
+    );
+  }
+}

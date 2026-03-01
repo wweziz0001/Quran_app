@@ -1,0 +1,712 @@
+# Quran Application - Changelog
+
+## نظرة عامة
+هذا الملف يحتوي على سجل جميع التغييرات والإصدارات.
+
+### ترقيم الإصدارات
+- **Major (1.x.x)**: تغييرات جذرية أو إعادة بناء كاملة
+- **Minor (1.1.x)**: إضافة ميزات جديدة
+- **Patch (1.0.x)**: إصلاح أخطاء ومشاكل
+
+### الرموز المستخدمة
+- 🟢 كود جديد (تمت إضافته)
+- 🔴 كود قديم (تمت إزالته)
+- 🔧 إصلاح
+- ✨ ميزة جديدة
+- 📝 توثيق
+- 🎨 تحسينات التصميم
+
+---
+
+## [1.3.4] - 2025-03-01
+
+### 🔴 إزالة كود
+
+#### حذف تبويب Database Browser من لوحة الإدارة
+
+**السبب:**
+المستخدم لم يعد بحاجة لتبويب Database Browser، ويستخدم DB Manager كبديل أفضل وأكثر تقدماً.
+
+**الملفات المتأثرة:**
+- `src/app/admin/page.tsx` - إزالة DatabaseBrowser
+- `src/components/admin/database-browser.tsx` - 🔴 حذف الملف بالكامل
+
+**التفاصيل:** انظر `changelog/v1.3.4.md`
+
+---
+
+## [1.3.3] - 2025-03-01
+
+### 📝 التوثيق
+
+#### إضافة قاعدة التحقق من تشغيل النظام في منهجية التطوير
+
+**المشكلة:**
+لم تكن هناك قاعدة واضحة للتحقق من أن النظام يعمل بشكل صحيح. كان يتم الاعتماد فقط على تشغيل الـ dev server كدليل على نجاح التشغيل.
+
+**الحل:**
+إضافة قسم جديد "التحقق من تشغيل النظام" في `DEVELOPMENT_GUIDE.md` يتضمن:
+- ⚠️ قاعدة واضحة: لا يُعتبر تشغيل service كتشغيل ناجح
+- 🎯 المتطلبات: التحقق من 3 واجهات رئيسية (`/`, `/admin`, `/quran`)
+- ✅ Checklist للتحقق
+- ❌ أمثلة على حالات خاطئة
+- 🔧 أمر سريع للتحقق
+
+**الملفات المتأثرة:**
+- `DEVELOPMENT_GUIDE.md` - إضافة قسم جديد
+
+**التفاصيل:** انظر `changelog/v1.3.3.md`
+
+---
+
+## [1.3.2] - 2025-03-01
+
+### ✨ الميزات الجديدة
+
+#### Schema Visualizer - تحسينات العرض والعلاقات
+
+**المشكلة:**
+- لم تظهر العلاقات بين الجداول
+- لم يكن هناك تفاعل عند التأشير على خطوط العلاقات
+- الجداول متقاربة جداً
+
+**الحل:**
+- ✅ إضافة API لاستخراج العلاقات من Prisma Schema (23 علاقة)
+- ✅ إبراز تفاعلي للجداول والحقول عند التأشير على العلاقة
+- ✅ زيادة المسافة بين الجداول من 50px إلى 150px
+
+**الملفات المتأثرة:**
+- `src/app/api/admin/db/schema/route.ts` (جديد)
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/app/admin/page.tsx`
+
+**التفاصيل:** انظر `changelog/v1.3.2.md`
+
+---
+
+## [1.3.1] - 2025-01-19
+
+### 🔧 الإصلاحات
+
+#### إصلاح جميع مشاكل مدير قواعد البيانات
+
+**المشاكل التي تم إصلاحها:**
+
+1. **Dashboard**: أزرار Quick Actions + Pagination للجداول
+2. **Tables**: تعديل البيانات + Scroll bar في الفهرس
+3. **Query Editor**: مربع الاستعلام + أزرار التنفيذ
+4. **Schema**: عرض الجداول (الإصلاحات الأساسية)
+5. **Monitor**: ترتيب المربعات + البيانات الصحيحة
+6. **Audit Logs**: تسجيل جميع الأحداث (UPDATE, DELETE)
+7. **Permissions**: إضافة تعديل الصلاحيات
+
+**الملفات المتأثرة:**
+- `src/components/admin/database/database-manager.tsx`
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/components/admin/database/performance-monitor.tsx`
+- `src/app/api/admin/database/data/[table]/[id]/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.3.1.md`
+
+---
+
+## [1.3.0] - 2025-01-19
+
+### ✨ الميزات الجديدة
+
+#### نظام إدارة قواعد البيانات المتكامل (Enterprise-Grade Database Management)
+
+**الميزات المضافة:**
+1. **Monaco SQL Editor** - محرر SQL متقدم مع:
+   - Syntax Highlighting
+   - Autocomplete للجداول والأعمدة
+   - Multiple Tabs
+   - Query History & Saved Queries
+   - اختصارات لوحة المفاتيح
+
+2. **Schema Visualizer** - تصور هيكل قاعدة البيانات:
+   - ER Diagram تفاعلي
+   - عرض العلاقات بين الجداول
+   - Zoom & Pan
+
+3. **Data Editor** - محرر البيانات مع:
+   - Inline Editing
+   - CRUD Operations
+   - Bulk Delete
+   - Pagination
+
+4. **Permissions System** - نظام الصلاحيات:
+   - ثلاثة أدوار: Viewer, Editor, Admin
+   - صلاحيات دقيقة لكل عملية
+
+5. **Performance Monitor** - مراقبة الأداء:
+   - Slow Queries Detection
+   - Table Statistics
+   - Database Health
+
+**الملفات الجديدة:**
+- `src/components/admin/database/sql-editor.tsx`
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/components/admin/database/data-editor.tsx`
+- `src/components/admin/database/performance-monitor.tsx`
+- `src/lib/db-permissions.ts`
+
+**الملفات المحدثة:**
+- `src/components/admin/database/database-manager.tsx`
+- `src/app/api/admin/db/metrics/route.ts`
+- `src/app/api/admin/database/data/[table]/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.3.0.md`
+
+---
+
+## [1.2.7] - 2026-02-28
+
+### 📝 التوثيق
+
+#### إضافة نظام تعليمات للنماذج الذكية
+
+**الهدف:**
+عند سحب هذا المشروع إلى نموذج ذكاء اصطناعي آخر، يفهم المنهجية ويقوم بتنفيذها تلقائياً.
+
+**الملفات الجديدة:**
+- `DEVELOPMENT_GUIDE.md` - دليل التطوير والمساهمة الكامل
+- `AI_INSTRUCTIONS.md` - تعليمات موجهة للنماذج الذكية
+- `.cursorrules` - قواعد المشروع لـ Cursor وغيرها
+
+**الملفات المحدثة:**
+- `README.md` - تحديث شامل ليحتوي على معلومات المشروع الفعلية
+- `VERSION` - تحديث من 1.2.6 إلى 1.2.7
+
+**النتيجة:**
+- ✅ النماذج الذكية تفهم منهجية التوثيق تلقائياً
+- ✅ تطبيق Semantic Versioning بشكل صحيح
+- ✅ توثيق كل تغيير في ملف منفصل
+- ✅ رفع الفروع إلى GitHub بشكل منظم
+
+**التفاصيل:** انظر `changelog/v1.2.7.md`
+
+---
+
+## [1.2.6] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح عدم عمل واجهة مدير قواعد البيانات (DB Manager)
+
+**المشكلة:**
+جميع تبويبات واجهة مدير قواعد البيانات لم تكن تعمل:
+- Dashboard: لا يعرض أي بيانات
+- Tables: لا يظهر فيها أي بيانات
+- Audit Logs: لا يظهر فيها أي بيانات
+- Backup: الأزرار لا تعمل
+- Import/Export: لا تعمل الأزرار
+
+**الأسباب والإصلاحات:**
+
+1. **عدم وجود ملف `.env`** - تم إنشاؤه مع `DATABASE_URL`
+2. **خطأ BigInt serialization** - تم إصلاحه بإضافة `Number()`
+3. **استعلام `dbstat` غير مدعوم** - تم استبداله بقراءة حجم الملف
+4. **زر Export بدون handler** - تم إضافة دالة `handleExport`
+5. **خطأ reading 'map' of undefined** - تم إضافة fallback للأمان
+
+**الملفات المتأثرة:**
+- `.env` (جديد)
+- `src/app/api/admin/db/tables/route.ts`
+- `src/app/api/admin/db/metrics/route.ts`
+- `src/app/api/admin/db/backup/route.ts`
+- `src/components/admin/database/database-manager.tsx`
+
+**النتيجة:**
+- ✅ Dashboard: 31 جدول، 25,400+ صف، 10.7 MB
+- ✅ Tables: استعراض جميع الجداول والبيانات
+- ✅ Query Editor: تنفيذ استعلامات SQL
+- ✅ Import/Export: تصدير بصيغ JSON/CSV/SQL
+- ✅ Backup: إنشاء نسخ احتياطية
+- ✅ Audit Logs: جاهز للعمل
+
+**التفاصيل:** انظر `changelog/v1.2.6.md`
+
+---
+
+## [1.2.5] - 2026-02-28
+
+### ✨ ميزة جديدة
+
+#### نظام إدارة قواعد البيانات المتكامل (Enterprise-Grade Database Management)
+تحويل مستعرض قاعدة البيانات البسيط إلى نظام إدارة متكامل يشمل:
+
+**المكونات:**
+- Dashboard مع إحصائيات شاملة
+- إدارة الجداول مع عرض الهيكل والبيانات
+- محرر SQL متقدم مع حماية من الاستعلامات الخطرة
+- نظام الاستيراد والتصدير (JSON, CSV, SQL)
+- إدارة النسخ الاحتياطي
+- سجلات التدقيق الكاملة
+
+**الملفات الجديدة:**
+- `src/stores/database-store.ts` - Zustand Store
+- `src/components/admin/database/database-manager.tsx` - المكون الرئيسي
+- `src/app/api/admin/db/*` - API Endpoints
+
+**التفاصيل:** انظر `changelog/v1.2.5.md`
+
+---
+
+## [1.2.4] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح عرض الملفات الصوتية على مستوى الآية
+**المشكلة:** واجهة استعراض الملفات الصوتية للقارئ كانت تعرض الملفات على مستوى السورة الواحدة وليس بحسب الآيات
+
+**السبب:** API endpoint `/api/recitations` كان يجلب بيانات من جدول `Recitation` (مستوى السورة) بدلاً من `RecitationAyah` (مستوى الآية)
+
+**الملفات المتأثرة:**
+- `src/app/api/recitations/route.ts` - تغيير الاستعلام لجلب RecitationAyah
+- `src/components/admin/reciters-section.tsx` - تحديث الجدول والدوال
+
+**التفاصيل:** انظر `changelog/v1.2.4.md`
+
+---
+
+## [1.2.3] - 2026-02-28
+
+### ⚡ تحسينات الأداء
+
+#### تحسين استيراد الملفات الصوتية (تحسين جذري)
+**المشكلة:** عملية استيراد 6,236 ملف صوتي كانت تستغرق **10-15 دقيقة**
+
+**الحل:** تحويل إلى batch operations:
+- جلب جميع الآيات في query واحدة
+- فحص الموجودات في query واحدة  
+- إنشاء Recitations في batch واحد
+- إدراج RecitationAyah في batches من 500
+
+**النتيجة:** الوقت انخفض من **10-15 دقيقة** إلى **~5-10 ثواني**
+
+---
+
+## [1.2.2] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح #1 - قاعدة البيانات للقراءة فقط (readonly database)
+**المشكلة:** لم تكن عمليات الكتابة تعمل في قاعدة البيانات
+
+**السبب:** صلاحيات الملف `db/custom.db` لا تسمح بالكتابة
+
+**الحل:** `chmod 666 db/custom.db`
+
+---
+
+#### إصلاح #2 - استيراد الملفات الصوتية لا يعمل
+**المشكلة:** عند محاولة استيراد الملفات الصوتية للقراء، تظهر رسالة خطأ
+
+**السبب:** نماذج Prisma تتطلب حقول `id` و `updatedAt` عند إنشاء سجلات جديدة
+
+**الملفات المتأثرة:**
+- `src/app/api/recitations/import-bulk/route.ts` - إضافة id و updatedAt
+- `src/app/api/admin/import/route.ts` - إضافة id و updatedAt + تصحيح Recitation
+- `src/app/api/tafsir/route.ts` - إضافة id و updatedAt
+- `src/app/api/settings/route.ts` - إضافة id و updatedAt
+
+---
+
+## [1.2.1] - 2026-02-28
+
+### 🔧 الإصلاحات
+
+#### إصلاح #1 - عدم عمل استيراد الصوتيات من URL في صفحة القراء
+**المشكلة:** عند الضغط على "Import Audio from URL" في صفحة القراء، تنتهي العملية دون أي نتيجة
+
+**السبب:** API endpoint `/api/recitations/import-bulk` غير موجود
+
+**الملف:** `src/app/api/recitations/import-bulk/route.ts` (جديد)
+
+---
+
+#### إصلاح #2 - ظهور 7 قراء بدلاً من 8 في قائمة الاستيراد
+**المشكلة:** في واجهة استيراد البيانات، يظهر 7 قراء فقط في قائمة "استيراد الملفات الصوتية للآيات"
+
+**السبب:** القارئ "محمد أيوب" لا يملك `apiIdentifier` في قاعدة البيانات
+
+**الحل:** إضافة `apiIdentifier = 'ar.muhammadayyoub'` للقارئ
+
+---
+
+#### إصلاح #3 - عدم استيراد أي ملفات صوتية من واجهة الاستيراد
+**المشكلة:** عند اختيار قارئ والضغط على "استيراد الصوت"، تظهر رسالة "تم استيراد 0 ملف صوتي"
+
+**السبب:** عدم وجود آيات في قاعدة البيانات أو عدم وجود `ayahNumberGlobal`
+
+---
+
+### ✨ الميزات المضافة
+
+#### إضافة دعم `apiIdentifier` في API تحديث القارئ
+**الملف:** `src/app/api/reciters/[id]/route.ts`
+
+```diff
++ const { ..., apiIdentifier } = body;
+  data: {
++   ...(apiIdentifier !== undefined && { apiIdentifier }),
+  }
+```
+
+---
+
+## [1.1.7] - 2026-02-27
+
+### 🔧 الإصلاحات
+
+#### إصلاح خاصية حذف القارئ في لوحة التحكم
+**المشكلة:** خاصية حذف قارئ في قسم "Reciters & Audio Management" لا تعمل
+
+**السبب:** استخدام اسم خاطئ للعلاقة `recitations` بدلاً من `Recitation` في Prisma
+
+**الملف:** `src/app/api/reciters/[id]/route.ts`
+
+```diff
+- select: { recitations: true }
++ select: { Recitation: true }
+
+- recitationsCount: reciter._count.recitations
++ recitationsCount: reciter._count.Recitation
+
+- recitationsDeleted: existingReciter._count.recitations
++ recitationsDeleted: existingReciter._count.Recitation
+```
+
+---
+
+## [1.1.6] - 2026-02-27
+
+### 🔧 الإصلاحات
+
+#### إصلاح تكرار كلمة "سورة" في عنوان السورة
+**المشكلة:** كان يظهر "سورة سورة الفاتحة" بدلاً من "سورة الفاتحة"
+
+**السبب:** كان المكون يضيف كلمة "سُورَةُ" كبادئة، بينما اسم السورة من قاعدة البيانات يحتوي بالفعل على "سورة"
+
+**الملف:** `src/components/quran/islamic-ornaments.tsx`
+
+```diff
+- سُورَةُ {surahName}
++ {surahName}
+```
+
+---
+
+## [1.1.5] - 2026-02-27
+
+### 🎨 تحسينات التصميم
+
+#### تحسين شكل أرقام الآيات لتطابق تماماً أرقام السور (مع حالة الاختيار)
+**الوصف:**  
+تم تحديث تصميم أرقام الآيات لتكون مطابقة تماماً لتصميم أرقام السور في الفهرس، بما في ذلك:
+
+1. **نوع الخط:** مطابق تماماً لنوع الخط في الفهرس (text-sm font-bold)
+2. **حالة الاختيار:** عند اختيار آية، يتغير لون الرقم مثل السورة المختارة في الفهرس
+
+**الملفات:**
+- `src/components/quran/islamic-ornaments.tsx`
+- `src/components/quran/mushaf-viewer.tsx`
+
+**التغييرات:**
+
+```tsx
+// إضافة prop جديد isSelected للمكون
+export const LuxuriousVerseNumber = ({ 
+  number, 
+  isDark,
+  isSelected = false 
+}: { 
+  number: number; 
+  isDark: boolean;
+  isSelected?: boolean;
+}) => {
+  // ...
+  isSelected 
+    ? isDark
+      ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-slate-900 shadow-lg'
+      : 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg'
+    : isDark
+      ? 'bg-slate-700/80 text-slate-300 border border-amber-500/20'
+      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+}
+```
+
+**النتيجة:**
+- **الآية غير المختارة (فاتح):** خلفية خضراء فاتحة + نص أخضر داكن
+- **الآية المختارة (فاتح):** خلفية متدرجة خضراء + نص أبيض + توهج
+- **الآية غير المختارة (داكن):** خلفية رمادية + نص رمادي فاتح
+- **الآية المختارة (داكن):** خلفية متدرجة ذهبية + نص داكن + توهج
+
+---
+
+## [1.1.4] - 2026-02-27
+
+### 🎨 تحسينات التصميم
+
+#### تحسين شكل أرقام الآيات لتطابق تماماً أرقام السور (الحالة غير المختارة)
+**المشكلة:** أرقام الآيات كانت تظهر بلون مختلف عن أرقام السور غير المختارة في الفهرس
+
+**الملف:** `src/components/quran/islamic-ornaments.tsx`
+
+```diff
+- // Luxurious Verse Number - Matching Surah Index Style
++ // Luxurious VerseNumber - Matching Surah Index Style (unselected state)
+
+- isDark 
+-   ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-900'
+-   : 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 text-white'
++ isDark 
++   ? 'bg-slate-700/80 text-slate-300 border border-amber-500/20'
++   : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+
+- {/* Decorative corner */}
+- <span className={isDark ? 'bg-white/30' : 'bg-white/30'} />
++ {/* Decorative corner */}
++ <span className={isDark ? 'bg-amber-500/20' : 'bg-emerald-300/50'} />
+```
+
+**النتيجة:** أرقام الآيات الآن مطابقة تماماً لأرقام السور غير المختارة:
+- **الوضع الفاتح:** خلفية خضراء فاتحة (`emerald-50`) مع نص أخضر داكن (`emerald-700`) وحدود خضراء
+- **الوضع الداكن:** خلفية رمادية داكنة (`slate-700/80`) مع نص رمادي فاتح وحدود ذهبية خفيفة
+
+---
+
+## [1.1.3] - 2026-02-27
+
+### 🔧 الإصلاحات
+
+#### إصلاح الوصول لملفات changelog و VERSION في محرر الملفات
+**المشكلة:** لم يكن بالإمكان استعراض ملفات مجلد `changelog/` وملف `VERSION` في محرر الملفات بسبب قيود الأمان
+
+**الملف:** `src/app/api/files/route.ts`
+
+```diff
+  const ALLOWED_PATTERNS = [
+    /^src\//,
+    /^prisma\//,
+    /^docs\//,
+    /^public\//,
++   /^changelog\//,     // changelog/**/*
+    // ...
++   /^VERSION$/,        // VERSION file
+  ];
+```
+
+---
+
+## [1.1.2] - 2026-02-27
+
+### 🎨 تحسينات التصميم
+
+#### تحسين شكل أرقام الآيات في وضعية القائمة
+**الوصف:**  
+تم تحديث تصميم أرقام الآيات لتكون متناسقة مع تصميم أرقام السور في الفهرس.
+
+**التغييرات:**
+- تغيير الشكل من دائري إلى مربع مع حواف مستديرة (rounded-xl)
+- إضافة خلفية متدرجة (gradient) مشابهة لخلفية أرقام السور
+- إضافة زاوية مزخرفة صغيرة في الأعلى (decorative corner)
+- تحسين الظلال والتوهج لتتناسب مع الوضع الداكن والفاتح
+
+**الملف:** `src/components/quran/islamic-ornaments.tsx`
+
+```diff
+- // Luxurious Verse Number
++ // Luxurious Verse Number - Matching Surah Index Style
+
+- <span className="inline-flex items-center justify-center mx-3 relative align-middle">
++ <span className="inline-flex items-center justify-center mx-2 relative align-middle">
+
+- {/* Outer glow */}
+- <span className="absolute w-12 h-12 rounded-full blur-sm ..." />
+
+- {/* Decorative ring */}
+- <span className="absolute w-11 h-11 rounded-full ..." />
+
+- {/* Inner circle with number */}
+- <span className="relative w-10 h-10 rounded-full ...">
++ {/* Main container - Square like Surah Index */}
++ <span className="relative w-11 h-11 rounded-xl flex items-center justify-center ...">
++   {/* Decorative corner */}
++   <span className="absolute -top-1 -right-1 w-3 h-3 rotate-45 ..." />
++   {/* Inner border glow */}
++   <span className="absolute inset-0 rounded-xl ..." />
+  </span>
+```
+
+---
+
+## [1.1.1] - 2026-02-27
+
+### 🔧 الإصلاحات
+
+#### إصلاح #1 - أخطاء أسماء العلاقات في Prisma
+**المشكلة:** أخطاء `Unknown field for select statement` في عدة API endpoints بسبب استخدام أسماء خاطئة للعلاقات في `_count`
+
+**الملفات:**
+- `src/app/api/tafsir/route.ts`
+- `src/app/api/admin/image-mushaf/route.ts`
+- `src/app/api/admin/ttf-mushaf/route.ts`
+
+```diff
+# tafsir/route.ts
+- _count: { select: { tafsirEntries: true } }
++ _count: { select: { TafsirEntry: true } }
+
+# image-mushaf/route.ts
+- _count: { select: { pages: true, mushafAyat: true, mushafSurahs: true } }
++ _count: { select: { ImageMushafPage: true, ImageMushafAyah: true, ImageMushafSurah: true } }
+
+# ttf-mushaf/route.ts
+- _count: { select: { pages: true, mushafAyat: true, mushafSurahs: true } }
++ _count: { select: { TtfMushafPage: true, TtfMushafAyah: true, TtfMushafSurah: true } }
+```
+
+---
+
+#### إصلاح #2 - عدم ظهور الآيات في إدارة القرآن
+**المشكلة:** عند استعراض آيات أي سورة، لا تظهر الآيات بالرغم من وجودها في قاعدة البيانات
+
+**السبب:** عدم وجود حالة تحميل للآيات، مما يجعل الـ Dialog يعرض "لا توجد آيات" قبل اكتمال جلب البيانات
+
+**الملف:** `src/components/admin/quran-management-section.tsx`
+
+```diff
++ const [isLoadingVerses, setIsLoadingVerses] = useState(false);
+
+  async function fetchVerses(surahId: number) {
++   setIsLoadingVerses(true);
+    try {
+      const response = await fetch(`/api/ayah?surahId=${surahId}`);
+      const data = await response.json();
+      if (data.success) {
+        setVerses(data.data);
+      }
+    } catch (error) {
+      toast.error('فشل في تحميل الآيات');
++   } finally {
++     setIsLoadingVerses(false);
+    }
+  }
+
+  // في قسم العرض
++ {isLoadingVerses ? (
++   <div className="flex items-center justify-center h-32">
++     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
++   </div>
++ ) : verses.length === 0 ? ...
+```
+
+---
+
+## [1.1.0] - 2026-02-27
+
+### ✨ الميزات المضافة
+
+#### 1. محرر SQL في مستعرض قاعدة البيانات
+تم إضافة تبويب جديد "محرر SQL" في قسم Database مع:
+- تنفيذ استعلامات SELECT, PRAGMA, EXPLAIN
+- 8 استعلامات جاهزة للاستخدام السريع
+- سجل آخر 20 استعلام
+- عرض النتائج في جدول منسق
+- اختصار Ctrl+Enter للتنفيذ السريع
+
+#### 2. نظام تتبع الإصدارات
+تم إنشاء نظام كامل لتتبع التغييرات:
+- ملف VERSION للاصدار الحالي
+- مجلد changelog لتوثيق كل إصدار
+- تحديث اسم ملف التنزيل ليشمل رقم الإصدار
+
+---
+
+### 🔧 الإصلاحات
+
+#### إصلاح [1.0.1] - خطأ في استيراد الأيقونة Clear
+**المشكلة:** خطأ `Clear is not exported from lucide-react` في مكون database-browser.tsx
+
+**الملف:** `src/components/admin/database-browser.tsx`
+
+```diff
+- import { Clear } from 'lucide-react';
++ import { X } from 'lucide-react';
+
+- <Clear className="h-4 w-4 mr-1" />
++ <X className="h-4 w-4 mr-1" />
+```
+
+---
+
+#### إصلاح [1.0.2] - بطء تحميل قائمة الجداول
+**المشكلة:** مهلة طويلة عند تحميل قائمة الجداول بسبب COUNT على كل جدول
+
+**الملفات:**
+- `src/app/api/admin/database/tables/route.ts`
+- `src/app/api/admin/database/counts/route.ts` (جديد)
+- `src/components/admin/database-browser.tsx`
+
+**الحل:** فصل تحميل الجداول عن الأعداد
+```diff
+- // جلب الأعداد داخل نفس الطلب
+- count = await db[tableName].count();
+
++ // جلب الجداول فوراً بدون أعداد
++ // تم إنشاء API منفصل للأعداد
+```
+
+---
+
+#### إصلاح [1.0.3] - زر Download Project غير قابل للنقر
+**المشكلة:** الزر يظهر تحت الهيدر بسبب z-index منخفض
+
+**الملف:** `src/components/admin/files-section.tsx`
+
+```diff
+- <div className="absolute top-4 right-4 z-10">
++ <div className="absolute top-2 right-2 z-50">
++   <Button size="sm" ...>
+```
+
+---
+
+## [1.0.0] - 2026-02-27
+
+### الإصدار الأولي
+
+#### الميزات الأساسية:
+- ✨ مستعرض قاعدة البيانات مع CRUD كامل
+- ✨ محرر ملفات كامل (Monaco Editor)
+- ✨ نظام استيراد البيانات من AlQuran Cloud API
+- ✨ إدارة القراء والسور والآيات
+- ✨ نظام Themes (Dark/Light)
+- ✨ API موثق بالكامل
+
+#### قاعدة البيانات:
+- 27 جدول في قاعدة البيانات
+- 114 سورة
+- 6,236 آية
+- 20 قارئ
+
+---
+
+## كيفية إنشاء إصدار جديد
+
+### لإصلاح مشكلة (Patch):
+1. تحديث رقم الإصدار في `VERSION` من `1.0.0` إلى `1.0.1`
+2. إنشاء ملف في `changelog/v1.0.1.md`
+3. توثيق المشكلة والحل
+
+### لإضافة ميزة (Minor):
+1. تحديث رقم الإصدار في `VERSION` من `1.0.0` إلى `1.1.0`
+2. إنشاء ملف في `changelog/v1.1.0.md`
+3. توثيق الميزة الجديدة
+
+### لتغيير جذري (Major):
+1. تحديث رقم الإصدار في `VERSION` من `1.0.0` إلى `2.0.0`
+2. إنشاء ملف في `changelog/v2.0.0.md`
+3. توثيق جميع التغييرات الجذرية

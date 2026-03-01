@@ -1,0 +1,476 @@
+'use client';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { CodeBlock } from './code-block';
+
+export function AndroidSection() {
+  const projectStructure = `app/
+├── src/main/java/com/quran/app/
+│   ├── QuranApplication.kt
+│   │
+│   ├── di/                              # Dependency Injection
+│   │   ├── AppModule.kt
+│   │   ├── NetworkModule.kt
+│   │   ├── DatabaseModule.kt
+│   │   └── RepositoryModule.kt
+│   │
+│   ├── data/                            # DATA LAYER
+│   │   ├── remote/
+│   │   │   ├── ApiClient.kt
+│   │   │   ├── ApiEndpoints.kt
+│   │   │   └── dto/
+│   │   │       ├── SurahDto.kt
+│   │   │       ├── AyahDto.kt
+│   │   │       └── ReciterDto.kt
+│   │   │
+│   │   ├── local/
+│   │   │   ├── database/
+│   │   │   │   ├── QuranDatabase.kt
+│   │   │   │   └── dao/
+│   │   │   │       ├── SurahDao.kt
+│   │   │   │       └── AyahDao.kt
+│   │   │   │
+│   │   │   └── datastore/
+│   │   │       ├── UserPreferences.kt
+│   │   │       └── SettingsPreferences.kt
+│   │   │
+│   │   ├── repository/
+│   │   │   ├── QuranRepositoryImpl.kt
+│   │   │   ├── AudioRepositoryImpl.kt
+│   │   │   └── BookmarkRepositoryImpl.kt
+│   │   │
+│   │   └── mappers/
+│   │       ├── SurahMapper.kt
+│   │       └── AyahMapper.kt
+│   │
+│   ├── domain/                          # DOMAIN LAYER
+│   │   ├── model/
+│   │   │   ├── Surah.kt
+│   │   │   ├── Ayah.kt
+│   │   │   ├── Reciter.kt
+│   │   │   └── Bookmark.kt
+│   │   │
+│   │   ├── repository/
+│   │   │   ├── QuranRepository.kt
+│   │   │   └── AudioRepository.kt
+│   │   │
+│   │   └── usecase/
+│   │       ├── GetSurahsUseCase.kt
+│   │       ├── GetSurahWithAyahsUseCase.kt
+│   │       ├── SearchQuranUseCase.kt
+│   │       ├── AddBookmarkUseCase.kt
+│   │       └── PlayAudioUseCase.kt
+│   │
+│   ├── presentation/                    # PRESENTATION LAYER
+│   │   ├── navigation/
+│   │   │   ├── NavigationGraph.kt
+│   │   │   └── Screen.kt
+│   │   │
+│   │   ├── theme/
+│   │   │   ├── Theme.kt
+│   │   │   ├── Color.kt
+│   │   │   └── Type.kt
+│   │   │
+│   │   ├── components/
+│   │   │   ├── SurahCard.kt
+│   │   │   ├── AyahItem.kt
+│   │   │   ├── AudioPlayer.kt
+│   │   │   └── TafsirBottomSheet.kt
+│   │   │
+│   │   └── screens/
+│   │       ├── home/
+│   │       │   ├── HomeScreen.kt
+│   │       │   └── HomeViewModel.kt
+│   │       ├── surah/
+│   │       │   ├── SurahDetailScreen.kt
+│   │       │   └── SurahDetailViewModel.kt
+│   │       └── bookmarks/
+│   │           ├── BookmarksScreen.kt
+│   │           └── BookmarksViewModel.kt
+│   │
+│   └── service/
+│       ├── AudioService.kt
+│       └── AudioNotificationManager.kt
+│
+├── src/main/res/
+│   ├── font/
+│   │   ├── amiri_regular.ttf
+│   │   └── uthmani_font.ttf
+│   └── values/
+│       └── strings.xml
+│
+└── build.gradle.kts`;
+
+  const apiServiceCode = `interface QuranApiService {
+    
+    // Authentication
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest): Response<ApiResponse<AuthResponse>>
+    
+    @POST("api/auth/register")
+    suspend fun register(@Body request: RegisterRequest): Response<ApiResponse<AuthResponse>>
+    
+    // Surahs
+    @GET("api/surahs")
+    suspend fun getSurahs(): Response<ApiResponse<List<SurahDto>>>
+    
+    @GET("api/surahs/{id}")
+    suspend fun getSurah(
+        @Path("id") surahId: Int,
+        @Query("translation") translation: String = "en-sahih"
+    ): Response<ApiResponse<SurahDetailDto>>
+    
+    // Ayahs
+    @GET("api/ayah/{id}")
+    suspend fun getAyah(
+        @Path("id") ayahId: Int,
+        @Query("translation") translation: String = "en-sahih",
+        @Query("tafsir") tafsir: String? = null
+    ): Response<ApiResponse<AyahDetailDto>>
+    
+    // Reciters
+    @GET("api/reciters")
+    suspend fun getReciters(): Response<ApiResponse<List<ReciterDto>>>
+    
+    // Recitations
+    @GET("api/recitations")
+    suspend fun getRecitations(
+        @Query("surahId") surahId: Int? = null,
+        @Query("reciterId") reciterId: String? = null
+    ): Response<ApiResponse<List<RecitationDto>>>
+    
+    // Bookmarks
+    @GET("api/bookmarks")
+    suspend fun getBookmarks(): Response<ApiResponse<List<BookmarkDto>>>
+    
+    @POST("api/bookmarks")
+    suspend fun addBookmark(@Body request: BookmarkRequest): Response<ApiResponse<BookmarkDto>>
+    
+    @DELETE("api/bookmarks/{id}")
+    suspend fun removeBookmark(@Path("id") bookmarkId: String): Response<ApiResponse<Unit>>
+    
+    // Search
+    @GET("api/search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("type") type: String = "all"
+    ): Response<ApiResponse<SearchResultDto>>
+}`;
+
+  const viewModelCode = `@HiltViewModel
+class SurahDetailViewModel @Inject constructor(
+    private val getSurahUseCase: GetSurahWithAyahsUseCase,
+    private val addBookmarkUseCase: AddBookmarkUseCase,
+    private val removeBookmarkUseCase: RemoveBookmarkUseCase,
+    private val getBookmarksUseCase: GetBookmarksUseCase,
+    private val savedStateHandle: SavedStateHandle
+) : ViewModel() {
+    
+    private val surahId: Int = savedStateHandle["surahId"] ?: 1
+    
+    private val _uiState = MutableStateFlow<SurahDetailUiState>(SurahDetailUiState.Loading)
+    val uiState: StateFlow<SurahDetailUiState> = _uiState.asStateFlow()
+    
+    private val _selectedAyah = MutableStateFlow<Ayah?>(null)
+    val selectedAyah: StateFlow<Ayah?> = _selectedAyah.asStateFlow()
+    
+    private val _bookmarkedAyahs = MutableStateFlow<Set<Int>>(emptySet())
+    val bookmarkedAyahs: StateFlow<Set<Int>> = _bookmarkedAyahs.asStateFlow()
+    
+    init {
+        loadSurah()
+        loadBookmarks()
+    }
+    
+    fun loadSurah(translation: String = "en-sahih") {
+        viewModelScope.launch {
+            _uiState.value = SurahDetailUiState.Loading
+            
+            getSurahUseCase(surahId, translation)
+                .onSuccess { surah ->
+                    _uiState.value = SurahDetailUiState.Success(surah)
+                }
+                .onFailure { error ->
+                    _uiState.value = SurahDetailUiState.Error(error.message ?: "Unknown error")
+                }
+        }
+    }
+    
+    fun toggleBookmark(ayah: Ayah) {
+        viewModelScope.launch {
+            val isBookmarked = _bookmarkedAyahs.value.contains(ayah.id)
+            
+            if (isBookmarked) {
+                removeBookmarkUseCase(ayah.id)
+                _bookmarkedAyahs.value -= ayah.id
+            } else {
+                addBookmarkUseCase(ayah.id, BookmarkType.BOOKMARK)
+                _bookmarkedAyahs.value += ayah.id
+            }
+        }
+    }
+}
+
+// UI State
+sealed interface SurahDetailUiState {
+    data object Loading : SurahDetailUiState
+    data class Success(val surah: SurahWithAyahs) : SurahDetailUiState
+    data class Error(val message: String) : SurahDetailUiState
+}`;
+
+  const composeCode = `@Composable
+fun SurahDetailScreen(
+    surahId: Int,
+    onNavigateBack: () -> Unit,
+    viewModel: SurahDetailViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedAyah by viewModel.selectedAyah.collectAsStateWithLifecycle()
+    val bookmarkedAyahs by viewModel.bookmarkedAyahs.collectAsStateWithLifecycle()
+    
+    Scaffold(
+        topBar = {
+            SurahTopBar(
+                onNavigateBack = onNavigateBack,
+                surahName = when (val state = uiState) {
+                    is SurahDetailUiState.Success -> state.surah.nameEnglish
+                    else -> ""
+                }
+            )
+        }
+    ) { paddingValues ->
+        when (val state = uiState) {
+            is SurahDetailUiState.Loading -> LoadingIndicator()
+            is SurahDetailUiState.Error -> ErrorState(message = state.message)
+            is SurahDetailUiState.Success -> SurahContent(
+                surah = state.surah,
+                selectedAyahId = selectedAyah?.id,
+                bookmarkedAyahs = bookmarkedAyahs,
+                onAyahClick = { viewModel.selectAyah(it) },
+                onAyahDoubleClick = { viewModel.toggleBookmark(it) }
+            )
+        }
+    }
+}
+
+@Composable
+fun AyahItem(
+    ayah: Ayah,
+    isSelected: Boolean,
+    isBookmarked: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        } else Color.Transparent
+    )
+    
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Arabic Text with RTL support
+            Text(
+                text = ayah.textArabic,
+                style = MaterialTheme.typography.headlineMedium,
+                fontFamily = FontFamily(Font(R.font.amiri_regular)),
+                textDirection = TextDirection.Rtl,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            // Translation
+            ayah.translation?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}`;
+
+  const audioServiceCode = `class AudioService : Service() {
+    
+    private var mediaPlayer: MediaPlayer? = null
+    private var currentRecitation: Recitation? = null
+    private var ayahTimings: List<AyahTiming> = emptyList()
+    
+    private val _playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
+    val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
+    
+    fun playRecitation(recitation: Recitation, timings: List<AyahTiming>) {
+        stopPlayback()
+        
+        currentRecitation = recitation
+        ayahTimings = timings
+        
+        mediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            
+            setDataSource(recitation.audioUrl)
+            
+            setOnPreparedListener {
+                _playbackState.value = PlaybackState.Ready(recitation.durationSeconds ?: 0)
+                start()
+                startProgressUpdate()
+            }
+            
+            setOnCompletionListener {
+                _playbackState.value = PlaybackState.Completed
+            }
+            
+            prepareAsync()
+        }
+        
+        _playbackState.value = PlaybackState.Loading
+    }
+    
+    fun playPause() {
+        mediaPlayer?.let { player ->
+            if (player.isPlaying) {
+                player.pause()
+                _playbackState.value = PlaybackState.Paused(player.currentPosition.toLong())
+            } else {
+                player.start()
+                _playbackState.value = PlaybackState.Playing(player.currentPosition.toLong())
+            }
+        }
+    }
+    
+    fun seekTo(position: Long) {
+        mediaPlayer?.seekTo(position.toInt())
+    }
+    
+    fun setPlaybackSpeed(speed: Float) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            mediaPlayer?.playbackParams = MediaPlayer.PlaybackParams().setSpeed(speed)
+        }
+    }
+    
+    private fun startProgressUpdate() {
+        CoroutineScope(Dispatchers.Main).launch {
+            while (mediaPlayer?.isPlaying == true) {
+                mediaPlayer?.currentPosition?.let { position ->
+                    _playbackState.value = PlaybackState.Playing(position.toLong())
+                    updateCurrentAyah(position)
+                }
+                delay(100)
+            }
+        }
+    }
+}
+
+sealed interface PlaybackState {
+    data object Idle : PlaybackState
+    data object Loading : PlaybackState
+    data class Ready(val durationSeconds: Int) : PlaybackState
+    data class Playing(val position: Long) : PlaybackState
+    data class Paused(val position: Long) : PlaybackState
+    data object Completed : PlaybackState
+}`;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Android Architecture</h2>
+        <p className="text-muted-foreground">Clean Architecture implementation for Android app</p>
+      </div>
+
+      {/* Architecture Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <CardTitle className="text-lg mb-2">Presentation Layer</CardTitle>
+          <p className="text-sm text-muted-foreground">UI Components, ViewModels, Navigation</p>
+          <div className="mt-2 flex gap-1 flex-wrap">
+            <Badge variant="outline">Compose</Badge>
+            <Badge variant="outline">ViewModel</Badge>
+            <Badge variant="outline">StateFlow</Badge>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <CardTitle className="text-lg mb-2">Domain Layer</CardTitle>
+          <p className="text-sm text-muted-foreground">Use Cases, Repository Interfaces, Models</p>
+          <div className="mt-2 flex gap-1 flex-wrap">
+            <Badge variant="outline">UseCase</Badge>
+            <Badge variant="outline">Repository</Badge>
+            <Badge variant="outline">Entity</Badge>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <CardTitle className="text-lg mb-2">Data Layer</CardTitle>
+          <p className="text-sm text-muted-foreground">Repository Impl, API, Database, Cache</p>
+          <div className="mt-2 flex gap-1 flex-wrap">
+            <Badge variant="outline">Retrofit</Badge>
+            <Badge variant="outline">Room</Badge>
+            <Badge variant="outline">DataStore</Badge>
+          </div>
+        </Card>
+      </div>
+
+      {/* Project Structure */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Structure</CardTitle>
+          <CardDescription>Clean Architecture folder organization</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={projectStructure} language="plaintext" />
+        </CardContent>
+      </Card>
+
+      {/* API Service */}
+      <Card>
+        <CardHeader>
+          <CardTitle>API Service Interface</CardTitle>
+          <CardDescription>Retrofit API definitions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={apiServiceCode} language="kotlin" />
+        </CardContent>
+      </Card>
+
+      {/* ViewModel */}
+      <Card>
+        <CardHeader>
+          <CardTitle>ViewModel with StateFlow</CardTitle>
+          <CardDescription>Reactive state management</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={viewModelCode} language="kotlin" />
+        </CardContent>
+      </Card>
+
+      {/* Compose UI */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Jetpack Compose UI</CardTitle>
+          <CardDescription>Declarative UI with RTL Arabic support</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={composeCode} language="kotlin" />
+        </CardContent>
+      </Card>
+
+      {/* Audio Service */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Audio Service</CardTitle>
+          <CardDescription>Background audio playback with MediaPlayer</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CodeBlock code={audioServiceCode} language="kotlin" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

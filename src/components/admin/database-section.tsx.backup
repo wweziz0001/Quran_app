@@ -1,0 +1,377 @@
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Database, ChevronDown, Copy, Check, Key, List, Link2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface TableSchema {
+  name: string;
+  description: string;
+  rowCount: number;
+  columns: ColumnDef[];
+  indexes: string[];
+  foreignKeys: ForeignKeyDef[];
+}
+
+interface ColumnDef {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primary: boolean;
+  unique: boolean;
+  default?: string;
+}
+
+interface ForeignKeyDef {
+  columns: string[];
+  references: string;
+}
+
+const tableSchemas: TableSchema[] = [
+  {
+    name: 'users',
+    description: 'User accounts and authentication data',
+    rowCount: 1250,
+    columns: [
+      { name: 'id', type: 'VARCHAR(30)', nullable: false, primary: true, unique: true },
+      { name: 'email', type: 'VARCHAR(255)', nullable: false, primary: false, unique: true },
+      { name: 'password_hash', type: 'VARCHAR(255)', nullable: false, primary: false, unique: false },
+      { name: 'name', type: 'VARCHAR(255)', nullable: true, primary: false, unique: false },
+      { name: 'role', type: 'ENUM', nullable: false, primary: false, unique: false, default: 'USER' },
+      { name: 'avatar_url', type: 'VARCHAR(500)', nullable: true, primary: false, unique: false },
+      { name: 'locale', type: 'VARCHAR(10)', nullable: false, primary: false, unique: false, default: 'en' },
+      { name: 'theme', type: 'VARCHAR(20)', nullable: false, primary: false, unique: false, default: 'system' },
+      { name: 'is_active', type: 'BOOLEAN', nullable: false, primary: false, unique: false, default: 'true' },
+      { name: 'created_at', type: 'TIMESTAMP', nullable: false, primary: false, unique: false, default: 'NOW()' },
+      { name: 'updated_at', type: 'TIMESTAMP', nullable: false, primary: false, unique: false },
+      { name: 'last_login_at', type: 'TIMESTAMP', nullable: true, primary: false, unique: false },
+    ],
+    indexes: ['idx_email', 'idx_role'],
+    foreignKeys: []
+  },
+  {
+    name: 'surahs',
+    description: 'Quran chapters (114 records)',
+    rowCount: 114,
+    columns: [
+      { name: 'id', type: 'SERIAL', nullable: false, primary: true, unique: true },
+      { name: 'number', type: 'INT', nullable: false, primary: false, unique: true },
+      { name: 'name_arabic', type: 'VARCHAR(100)', nullable: false, primary: false, unique: false },
+      { name: 'name_english', type: 'VARCHAR(100)', nullable: false, primary: false, unique: false },
+      { name: 'name_transliteration', type: 'VARCHAR(100)', nullable: false, primary: false, unique: false },
+      { name: 'revelation_type', type: 'VARCHAR(20)', nullable: false, primary: false, unique: false },
+      { name: 'total_ayahs', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'page_number_start', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'juz_number_start', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'description', type: 'TEXT', nullable: true, primary: false, unique: false },
+    ],
+    indexes: ['idx_number', 'idx_revelation_type'],
+    foreignKeys: []
+  },
+  {
+    name: 'ayahs',
+    description: 'Quran verses (6,236 records)',
+    rowCount: 6236,
+    columns: [
+      { name: 'id', type: 'SERIAL', nullable: false, primary: true, unique: true },
+      { name: 'surah_id', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'ayah_number', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'ayah_number_global', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'text_arabic', type: 'TEXT', nullable: false, primary: false, unique: false },
+      { name: 'text_uthmani', type: 'TEXT', nullable: true, primary: false, unique: false },
+      { name: 'page_number', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'juz_number', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'hizb_number', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'sajdah', type: 'BOOLEAN', nullable: false, primary: false, unique: false, default: 'false' },
+    ],
+    indexes: ['idx_ayah_number_global', 'idx_page_number', 'idx_juz_number', 'unique_surah_ayah'],
+    foreignKeys: [
+      { columns: ['surah_id'], references: 'surahs(id) ON DELETE CASCADE' }
+    ]
+  },
+  {
+    name: 'reciters',
+    description: 'Audio reciters profile',
+    rowCount: 5,
+    columns: [
+      { name: 'id', type: 'VARCHAR(30)', nullable: false, primary: true, unique: true },
+      { name: 'name_arabic', type: 'VARCHAR(255)', nullable: false, primary: false, unique: false },
+      { name: 'name_english', type: 'VARCHAR(255)', nullable: false, primary: false, unique: false },
+      { name: 'slug', type: 'VARCHAR(255)', nullable: false, primary: false, unique: true },
+      { name: 'bio', type: 'TEXT', nullable: true, primary: false, unique: false },
+      { name: 'image_url', type: 'VARCHAR(500)', nullable: true, primary: false, unique: false },
+      { name: 'country', type: 'VARCHAR(100)', nullable: true, primary: false, unique: false },
+      { name: 'popularity', type: 'INT', nullable: false, primary: false, unique: false, default: '0' },
+      { name: 'is_active', type: 'BOOLEAN', nullable: false, primary: false, unique: false, default: 'true' },
+    ],
+    indexes: ['idx_slug', 'idx_popularity'],
+    foreignKeys: []
+  },
+  {
+    name: 'recitations',
+    description: 'Audio files mapping',
+    rowCount: 570,
+    columns: [
+      { name: 'id', type: 'VARCHAR(30)', nullable: false, primary: true, unique: true },
+      { name: 'surah_id', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'reciter_id', type: 'VARCHAR(30)', nullable: false, primary: false, unique: false },
+      { name: 'style', type: 'VARCHAR(50)', nullable: false, primary: false, unique: false },
+      { name: 'bitrate', type: 'INT', nullable: false, primary: false, unique: false, default: '128' },
+      { name: 'audio_url', type: 'VARCHAR(500)', nullable: false, primary: false, unique: false },
+      { name: 'duration_seconds', type: 'INT', nullable: true, primary: false, unique: false },
+      { name: 'is_active', type: 'BOOLEAN', nullable: false, primary: false, unique: false, default: 'true' },
+    ],
+    indexes: ['idx_reciter_id', 'idx_surah_id', 'unique_surah_reciter_style'],
+    foreignKeys: [
+      { columns: ['surah_id'], references: 'surahs(id) ON DELETE CASCADE' },
+      { columns: ['reciter_id'], references: 'reciters(id) ON DELETE CASCADE' }
+    ]
+  },
+  {
+    name: 'bookmarks',
+    description: 'User bookmarks',
+    rowCount: 3500,
+    columns: [
+      { name: 'id', type: 'VARCHAR(30)', nullable: false, primary: true, unique: true },
+      { name: 'user_id', type: 'VARCHAR(30)', nullable: false, primary: false, unique: false },
+      { name: 'ayah_id', type: 'INT', nullable: false, primary: false, unique: false },
+      { name: 'type', type: 'ENUM', nullable: false, primary: false, unique: false, default: 'BOOKMARK' },
+      { name: 'note', type: 'TEXT', nullable: true, primary: false, unique: false },
+      { name: 'color', type: 'VARCHAR(20)', nullable: true, primary: false, unique: false },
+    ],
+    indexes: ['idx_user_id', 'idx_ayah_id', 'unique_user_ayah_type'],
+    foreignKeys: [
+      { columns: ['user_id'], references: 'users(id) ON DELETE CASCADE' },
+      { columns: ['ayah_id'], references: 'ayahs(id) ON DELETE CASCADE' }
+    ]
+  },
+];
+
+function TableCard({ table }: { table: TableSchema }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const generateSQL = () => {
+    let sql = `CREATE TABLE ${table.name} (\n`;
+    sql += table.columns.map(col => {
+      let line = `  ${col.name} ${col.type}`;
+      if (col.primary) line += ' PRIMARY KEY';
+      if (col.unique && !col.primary) line += ' UNIQUE';
+      if (!col.nullable && !col.primary) line += ' NOT NULL';
+      if (col.default) line += ` DEFAULT ${col.default}`;
+      return line;
+    }).join(',\n');
+    
+    if (table.foreignKeys.length > 0) {
+      sql += ',\n';
+      sql += table.foreignKeys.map(fk => 
+        `  FOREIGN KEY (${fk.columns.join(', ')}) REFERENCES ${fk.references}`
+      ).join(',\n');
+    }
+    
+    sql += '\n);';
+    
+    if (table.indexes.length > 0) {
+      sql += '\n\n';
+      sql += table.indexes.map(idx => 
+        `CREATE INDEX ${idx} ON ${table.name};`
+      ).join('\n');
+    }
+    
+    return sql;
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generateSQL());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Card>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <CardContent className="p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Database className="h-5 w-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="font-mono font-semibold">{table.name}</p>
+                  <p className="text-sm text-muted-foreground">{table.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="font-semibold">{table.rowCount.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">rows</p>
+                </div>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="gap-1">
+                    <Key className="h-3 w-3" />
+                    {table.columns.filter(c => c.primary).length} PK
+                  </Badge>
+                  <Badge variant="outline" className="gap-1">
+                    <List className="h-3 w-3" />
+                    {table.indexes.length}
+                  </Badge>
+                  {table.foreignKeys.length > 0 && (
+                    <Badge variant="outline" className="gap-1">
+                      <Link2 className="h-3 w-3" />
+                      {table.foreignKeys.length} FK
+                    </Badge>
+                  )}
+                </div>
+                <ChevronDown className={cn(
+                  "h-5 w-5 transition-transform",
+                  isOpen && "rotate-180"
+                )} />
+              </div>
+            </div>
+          </CardContent>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="border-t px-4 py-4">
+            {/* Columns Table */}
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold mb-2">Columns ({table.columns.length})</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2">Column</th>
+                      <th className="text-left py-2 px-2">Type</th>
+                      <th className="text-left py-2 px-2">Nullable</th>
+                      <th className="text-left py-2 px-2">Constraints</th>
+                      <th className="text-left py-2 px-2">Default</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {table.columns.map((col, i) => (
+                      <tr key={i} className="border-b border-muted">
+                        <td className="py-2 px-2 font-mono">{col.name}</td>
+                        <td className="py-2 px-2">
+                          <Badge variant="secondary" className="font-mono text-xs">{col.type}</Badge>
+                        </td>
+                        <td className="py-2 px-2">
+                          {col.nullable ? 
+                            <span className="text-muted-foreground">NULL</span> : 
+                            <span className="text-amber-500">NOT NULL</span>
+                          }
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="flex gap-1">
+                            {col.primary && <Badge className="text-xs bg-amber-500/10 text-amber-600">PK</Badge>}
+                            {col.unique && !col.primary && <Badge className="text-xs bg-blue-500/10 text-blue-600">UNIQUE</Badge>}
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground font-mono text-xs">
+                          {col.default || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Indexes */}
+            {table.indexes.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold mb-2">Indexes</h4>
+                <div className="flex flex-wrap gap-2">
+                  {table.indexes.map((idx, i) => (
+                    <Badge key={i} variant="outline" className="font-mono text-xs">
+                      {idx}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Foreign Keys */}
+            {table.foreignKeys.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold mb-2">Foreign Keys</h4>
+                <div className="space-y-1">
+                  {table.foreignKeys.map((fk, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {fk.columns.join(', ')}
+                      </Badge>
+                      <span className="text-muted-foreground">→</span>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {fk.references}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SQL Preview */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold">SQL Schema</h4>
+                <Button size="sm" variant="ghost" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <pre className="bg-muted/50 border rounded-lg p-4 overflow-x-auto text-xs font-mono">
+                {generateSQL()}
+              </pre>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+export function DatabaseSection() {
+  const totalColumns = tableSchemas.reduce((acc, t) => acc + t.columns.length, 0);
+  const totalIndexes = tableSchemas.reduce((acc, t) => acc + t.indexes.length, 0);
+  const totalFKs = tableSchemas.reduce((acc, t) => acc + t.foreignKeys.length, 0);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">Database Schema</h2>
+        <p className="text-muted-foreground">Complete table structures with indexes and constraints</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{tableSchemas.length}</p>
+          <p className="text-xs text-muted-foreground">Tables</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{totalColumns}</p>
+          <p className="text-xs text-muted-foreground">Columns</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{totalIndexes}</p>
+          <p className="text-xs text-muted-foreground">Indexes</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{totalFKs}</p>
+          <p className="text-xs text-muted-foreground">Foreign Keys</p>
+        </Card>
+      </div>
+
+      {/* Tables */}
+      <div className="space-y-3">
+        {tableSchemas.map((table, i) => (
+          <TableCard key={i} table={table} />
+        ))}
+      </div>
+    </div>
+  );
+}

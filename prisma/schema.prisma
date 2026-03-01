@@ -1,0 +1,593 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AppSetting {
+  id          String   @id
+  key         String   @unique
+  value       String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([key])
+}
+
+model Ayah {
+  id               Int                @id @default(autoincrement())
+  surahId          Int
+  ayahNumber       Int
+  ayahNumberGlobal Int?
+  textArabic       String
+  textUthmani      String?
+  textIndopak      String?
+  pageNumber       Int?
+  juzNumber        Int?
+  hizbNumber       Int?
+  rubNumber        Int?
+  sajdah           Boolean            @default(false)
+  sajdahType       String?
+  wordCount        Int?
+  letterCount      Int?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  Surah            Surah              @relation(fields: [surahId], references: [id], onDelete: Cascade)
+  Bookmark         Bookmark[]
+  ReadingHistory   ReadingHistory[]
+  RecitationAyah   RecitationAyah[]
+  TafsirEntry      TafsirEntry[]
+  TranslationEntry TranslationEntry[]
+
+  @@unique([surahId, ayahNumber])
+  @@index([juzNumber])
+  @@index([pageNumber])
+  @@index([ayahNumberGlobal])
+}
+
+model Bookmark {
+  id        String   @id
+  userId    String
+  ayahId    Int
+  type      String   @default("BOOKMARK")
+  note      String?
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Ayah      Ayah     @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ayahId, type])
+  @@index([ayahId])
+  @@index([userId])
+}
+
+model ImageMushafAyah {
+  id                 Int                @id @default(autoincrement())
+  editionId          String
+  surahId            Int
+  quarter            Int
+  page               Int
+  ayah               Int
+  createdAt          DateTime           @default(now())
+  ImageMushafEdition ImageMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  ImageMushafLine    ImageMushafLine[]
+  ImageMushafWord    ImageMushafWord[]
+
+  @@unique([editionId, id])
+  @@index([surahId])
+  @@index([page])
+  @@index([editionId])
+}
+
+model ImageMushafEdition {
+  id                  String                @id
+  slug                String                @unique
+  nameArabic          String
+  nameEnglish         String
+  description         String?
+  narration           Int                   @default(1)
+  version             Int                   @default(1)
+  surahsCount         Int                   @default(114)
+  quartersCount       Int                   @default(240)
+  totalPages          Int                   @default(604)
+  width               Int                   @default(1024)
+  height              Int                   @default(1656)
+  rgbColor            String?
+  rgbaBackground      String?
+  imageExtension      String                @default(".png")
+  dbFilePath          String?
+  isDefault           Boolean               @default(false)
+  isActive            Boolean               @default(true)
+  sourceUrl           String?
+  comment             String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  ImageMushafAyah     ImageMushafAyah[]
+  ImageMushafPage     ImageMushafPage[]
+  ImageMushafSurah    ImageMushafSurah[]
+  MushafDiscriminator MushafDiscriminator[]
+
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([slug])
+}
+
+model ImageMushafLine {
+  id              Int             @id @default(autoincrement())
+  ayahId          Int
+  editionId       String
+  lineNumber      Int
+  minX            Int
+  maxX            Int
+  minY            Int
+  maxY            Int
+  createdAt       DateTime        @default(now())
+  ImageMushafAyah ImageMushafAyah @relation(fields: [ayahId, editionId], references: [id, editionId], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([ayahId])
+}
+
+model ImageMushafPage {
+  id                 String             @id
+  editionId          String
+  pageNumber         Int
+  imageUrl           String
+  width              Int?
+  height             Int?
+  createdAt          DateTime           @default(now())
+  ImageMushafEdition ImageMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, pageNumber])
+  @@index([pageNumber])
+}
+
+model ImageMushafSurah {
+  id                 Int                @id @default(autoincrement())
+  editionId          String
+  makyaMadanya       Int                @default(0)
+  ayatCount          Int
+  name               String
+  createdAt          DateTime           @default(now())
+  ImageMushafEdition ImageMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([editionId])
+}
+
+model ImageMushafWord {
+  id              Int             @id @default(autoincrement())
+  ayahId          Int
+  editionId       String
+  lineNumber      Int
+  wordNumber      Int
+  discriminator   Int             @default(0)
+  minX            Int
+  maxX            Int
+  minY            Int
+  maxY            Int
+  createdAt       DateTime        @default(now())
+  ImageMushafAyah ImageMushafAyah @relation(fields: [ayahId, editionId], references: [id, editionId], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([ayahId])
+}
+
+model MushafDiscriminator {
+  id                 Int                @id @default(autoincrement())
+  editionId          String
+  enabled            Boolean            @default(true)
+  comment            String?
+  createdAt          DateTime           @default(now())
+  ImageMushafEdition ImageMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([editionId])
+}
+
+model ReadingHistory {
+  id         String   @id
+  userId     String
+  ayahId     Int
+  lastReadAt DateTime @default(now())
+  readCount  Int      @default(1)
+  Ayah       Ayah     @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+  User       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ayahId])
+  @@index([lastReadAt])
+  @@index([userId])
+}
+
+model Recitation {
+  id              String           @id
+  surahId         Int
+  reciterId       String
+  style           String
+  bitrate         Int              @default(128)
+  format          String           @default("mp3")
+  timingDataUrl   String?
+  fileSize        Int?
+  durationSeconds Int?
+  audioUrl        String
+  audioUrlHd      String?
+  isActive        Boolean          @default(true)
+  downloadCount   Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  Reciter         Reciter          @relation(fields: [reciterId], references: [id], onDelete: Cascade)
+  Surah           Surah            @relation(fields: [surahId], references: [id], onDelete: Cascade)
+  RecitationAyah  RecitationAyah[]
+
+  @@unique([surahId, reciterId, style])
+  @@index([surahId])
+  @@index([reciterId])
+}
+
+model RecitationAyah {
+  id           String     @id
+  recitationId String
+  ayahId       Int
+  startTime    Int
+  endTime      Int
+  audioUrl     String?
+  durationMs   Int?
+  createdAt    DateTime   @default(now())
+  Ayah         Ayah       @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+  Recitation   Recitation @relation(fields: [recitationId], references: [id], onDelete: Cascade)
+
+  @@unique([recitationId, ayahId])
+  @@index([ayahId])
+  @@index([recitationId])
+}
+
+model Reciter {
+  id             String       @id @default(cuid())
+  nameArabic     String
+  nameEnglish    String
+  slug           String       @unique
+  bio            String?
+  imageUrl       String?
+  country        String?
+  deathYear      Int?
+  hasHighQuality Boolean      @default(false)
+  hasGapless     Boolean      @default(false)
+  totalDownloads Int          @default(0)
+  popularity     Int          @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  apiIdentifier  String?      @unique
+  Recitation     Recitation[]
+
+  @@index([popularity])
+  @@index([isActive])
+  @@index([slug])
+}
+
+model Surah {
+  id                  Int           @id @default(autoincrement())
+  number              Int           @unique
+  nameArabic          String
+  nameEnglish         String
+  nameTransliteration String?
+  revelationType      String
+  totalAyahs          Int
+  pageNumberStart     Int?
+  juzNumberStart      Int?
+  description         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  Ayah                Ayah[]
+  Recitation          Recitation[]
+  TafsirEntry         TafsirEntry[]
+
+  @@index([revelationType])
+  @@index([number])
+}
+
+model TafsirEntry {
+  id               String       @id
+  surahId          Int
+  ayahId           Int
+  sourceId         String
+  textArabic       String?
+  textTranslation  String?
+  htmlContent      String?
+  pageNumber       Int?
+  wordExplanations String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime
+  TafsirSource     TafsirSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  Ayah             Ayah         @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+  Surah            Surah        @relation(fields: [surahId], references: [id], onDelete: Cascade)
+
+  @@unique([ayahId, sourceId])
+  @@index([sourceId])
+  @@index([surahId])
+}
+
+model TafsirSource {
+  id            String        @id
+  nameArabic    String
+  nameEnglish   String
+  slug          String        @unique
+  authorArabic  String?
+  authorEnglish String?
+  description   String?
+  language      String        @default("ar")
+  isDefault     Boolean       @default(false)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  TafsirEntry   TafsirEntry[]
+
+  @@index([isDefault])
+  @@index([language])
+  @@index([slug])
+}
+
+model TranslationEntry {
+  id                String            @id
+  ayahId            Int
+  sourceId          String
+  text              String
+  footnotes         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  TranslationSource TranslationSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  Ayah              Ayah              @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+
+  @@unique([ayahId, sourceId])
+  @@index([sourceId])
+}
+
+model TranslationSource {
+  id               String             @id
+  name             String
+  language         String
+  languageCode     String             @unique
+  author           String?
+  description      String?
+  isDefault        Boolean            @default(false)
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  TranslationEntry TranslationEntry[]
+
+  @@index([isDefault])
+  @@index([languageCode])
+}
+
+model TtfDiscriminator {
+  id               Int              @id @default(autoincrement())
+  editionId        String
+  enabled          Boolean          @default(true)
+  comment          String?
+  createdAt        DateTime         @default(now())
+  TtfMushafEdition TtfMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([editionId])
+}
+
+model TtfMushafAyah {
+  id               Int              @id @default(autoincrement())
+  editionId        String
+  surahId          Int
+  quarter          Int
+  page             Int
+  ayah             Int
+  wordsCount       Int              @default(0)
+  glyphsCount      Int              @default(0)
+  createdAt        DateTime         @default(now())
+  TtfMushafEdition TtfMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  TtfMushafWord    TtfMushafWord[]
+
+  @@unique([editionId, id])
+  @@index([surahId])
+  @@index([page])
+  @@index([editionId])
+}
+
+model TtfMushafEdition {
+  id               String             @id
+  slug             String             @unique
+  nameArabic       String
+  nameEnglish      String
+  description      String?
+  narration        Int                @default(1)
+  version          Int                @default(1)
+  surahsCount      Int                @default(114)
+  quartersCount    Int                @default(240)
+  totalPages       Int                @default(604)
+  type             String             @default("uthmani")
+  fontExtension    String             @default(".ttf")
+  fontFilePath     String?
+  dbFilePath       String?
+  // الخط الخاص لأسماء السور والبسملة (000.ttf)
+  specialFontUrl   String?
+  specialFontName  String?
+  specialFontSize  Int?
+  isDefault        Boolean            @default(false)
+  isActive         Boolean            @default(true)
+  sourceUrl        String?
+  comment          String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  TtfDiscriminator TtfDiscriminator[]
+  TtfMushafAyah    TtfMushafAyah[]
+  TtfMushafPage    TtfMushafPage[]
+  TtfMushafSurah   TtfMushafSurah[]
+
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([slug])
+}
+
+model TtfMushafPage {
+  id               Int              @id @default(autoincrement())
+  editionId        String
+  pageNumber       Int              @default(0)
+  fontUrl          String?
+  fileName         String?
+  fileSize         Int?
+  sizeUnit         Int              @default(0)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  TtfMushafEdition TtfMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, pageNumber])
+  @@index([editionId])
+  @@index([pageNumber])
+}
+
+model TtfMushafSurah {
+  id               Int              @id @default(autoincrement())
+  editionId        String
+  makyaMadanya     Int              @default(0)
+  ayatCount        Int
+  name             String
+  createdAt        DateTime         @default(now())
+  TtfMushafEdition TtfMushafEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([editionId])
+}
+
+model TtfMushafWord {
+  id            Int           @id @default(autoincrement())
+  ayahId        Int
+  editionId     String
+  lineNumber    Int
+  wordNumber    Int
+  discriminator Int           @default(0)
+  text          String
+  createdAt     DateTime      @default(now())
+  TtfMushafAyah TtfMushafAyah @relation(fields: [ayahId, editionId], references: [id, editionId], onDelete: Cascade)
+
+  @@unique([editionId, id])
+  @@index([ayahId])
+}
+
+model User {
+  id             String           @id
+  email          String           @unique
+  passwordHash   String
+  name           String?
+  role           String           @default("USER")
+  avatarUrl      String?
+  locale         String           @default("en")
+  theme          String           @default("system")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  lastLoginAt    DateTime?
+  isActive       Boolean          @default(true)
+  Bookmark       Bookmark[]
+  ReadingHistory ReadingHistory[]
+  UserSetting    UserSetting?
+
+  @@index([role])
+  @@index([email])
+}
+
+model UserSetting {
+  id                   String   @id
+  userId               String   @unique
+  fontSize             Float    @default(1.0)
+  fontFamily           String   @default("uthmani")
+  showTajweed          Boolean  @default(false)
+  showTranslation      Boolean  @default(true)
+  preferredTranslation String   @default("en-sahih")
+  defaultReciterId     String?
+  audioSpeed           Float    @default(1.0)
+  autoPlay             Boolean  @default(false)
+  dailyReminder        Boolean  @default(false)
+  reminderTime         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime
+  User                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== Database Management System Models ====================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  userId       String?
+  userName     String?
+  userRole     String?
+  action       String
+  resourceType String
+  resourceName String
+  resourceId   String?
+  details      String?
+  query        String?
+  affectedRows Int?
+  executionTime Float?
+  ipAddress    String?
+  userAgent    String?
+  status       String   @default("success")
+  errorMessage String?
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
+}
+
+model SavedQuery {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  query       String
+  tags        String?
+  isFavorite  Boolean  @default(false)
+  useCount    Int      @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastUsedAt  DateTime?
+
+  @@index([name])
+  @@index([isFavorite])
+}
+
+model BackupRecord {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   @default("full")
+  size         Int      @default(0)
+  status       String   @default("pending")
+  duration     Int?
+  checksum     String?
+  location     String?
+  errorMessage String?
+  metadata     String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model QueryHistory {
+  id             String   @id @default(cuid())
+  query          String
+  executionTime  Float
+  rowCount       Int?
+  status         String   @default("success")
+  errorMessage   String?
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}

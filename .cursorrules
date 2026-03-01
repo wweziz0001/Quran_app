@@ -1,0 +1,61 @@
+# Quran Application - Project Rules
+
+## AI Assistant Instructions
+
+When working on this project, ALWAYS follow these steps:
+
+### 1. Initial Setup
+Read these files first:
+- VERSION (current version number)
+- DEVELOPMENT_GUIDE.md (full methodology)
+- AI_INSTRUCTIONS.md (quick reference)
+- changelog/CHANGELOG.md (recent changes)
+
+### 2. When Making Changes
+
+#### Version Update Rules:
+- Bug fix → increment PATCH (1.2.5 → 1.2.6)
+- New feature → increment MINOR (1.2.6 → 1.3.0)
+- Major change → increment MAJOR (1.3.0 → 2.0.0)
+
+#### Documentation Requirements:
+1. Update VERSION file with new number
+2. Create changelog/vX.X.X.md with details
+3. Update changelog/CHANGELOG.md with summary
+4. Create git branch named vX.X.X
+5. Commit with message: "Release vX.X.X: brief description"
+6. Push to GitHub
+
+### 3. Changelog Format
+
+Use these symbols:
+- 🔧 Bug fix
+- ✨ New feature
+- 🎨 Design improvement
+- ⚡ Performance improvement
+- 📝 Documentation
+- 🟢 New code
+- 🔴 Removed code
+
+### 4. Git Workflow
+
+```bash
+git checkout -b vX.X.X
+git add .
+git commit -m "Release vX.X.X: description"
+git push origin vX.X.X
+```
+
+### 5. Project Info
+
+- Repository: https://github.com/wweziz0001/Quran_app
+- Language: TypeScript/Next.js
+- Database: SQLite with Prisma ORM
+- UI: Tailwind CSS + shadcn/ui
+
+### 6. Never Skip
+
+- Always document changes in changelog
+- Always create a new branch for each release
+- Always update VERSION file
+- Always follow semantic versioning
