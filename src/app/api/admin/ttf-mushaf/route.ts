@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
-import initSqlJs from 'sql.js';
+import Database from 'better-sqlite3';
 
 // GET - List all TTF mushaf editions
 export async function GET(request: NextRequest) {
@@ -349,29 +349,24 @@ async function importTtfDatabase(editionId: string, dbPath: string): Promise<{
   };
 
   try {
-    // Initialize SQL.js
-    const SQL = await initSqlJs();
-    
-    // Read the database file
-    const { readFile } = await import('fs/promises');
-    const fileBuffer = await readFile(dbPath);
-    const sqlDb = new SQL.Database(new Uint8Array(fileBuffer));
+    // Open database with better-sqlite3
+    const sqlDb = new Database(dbPath, { readonly: true, fileMustExist: true });
 
     // Import surahs
     try {
-      const surahs = sqlDb.exec('SELECT * FROM surahs');
-      if (surahs.length > 0 && surahs[0].values) {
-        console.log(`Found ${surahs[0].values.length} surahs`);
+      const surahs = sqlDb.prepare('SELECT * FROM surahs').all() as any[];
+      if (surahs.length > 0) {
+        console.log(`Found ${surahs.length} surahs`);
         
-        for (const row of surahs[0].values) {
+        for (const row of surahs) {
           try {
             await db.ttfMushafSurah.create({
               data: {
                 editionId,
-                id: Number(row[0]) || 0,
-                name: String(row[1] || ''),
-                ayatCount: Number(row[2]) || 0,
-                makkyMadanya: Number(row[3]) || 0,
+                id: Number(row.id || row[0]) || 0,
+                name: String(row.name || row[1] || ''),
+                ayatCount: Number(row.ayatCount || row.ayat_count || row[2]) || 0,
+                makkyMadanya: Number(row.makkyMadanya || row.makky_madanya || row[3]) || 0,
               },
             });
             result.surahs++;
@@ -386,18 +381,18 @@ async function importTtfDatabase(editionId: string, dbPath: string): Promise<{
 
     // Import discriminators
     try {
-      const discriminators = sqlDb.exec('SELECT * FROM discriminators');
-      if (discriminators.length > 0 && discriminators[0].values) {
-        console.log(`Found ${discriminators[0].values.length} discriminators`);
+      const discriminators = sqlDb.prepare('SELECT * FROM discriminators').all() as any[];
+      if (discriminators.length > 0) {
+        console.log(`Found ${discriminators.length} discriminators`);
         
-        for (const row of discriminators[0].values) {
+        for (const row of discriminators) {
           try {
             await db.ttfDiscriminator.create({
               data: {
                 editionId,
-                id: Number(row[0]) || 0,
-                enabled: Number(row[1]) === 1,
-                comment: row[2] ? String(row[2]) : null,
+                id: Number(row.id || row[0]) || 0,
+                enabled: Number(row.enabled || row[1]) === 1,
+                comment: row.comment || row[2] ? String(row.comment || row[2]) : null,
               },
             });
             result.discriminators++;
@@ -410,26 +405,25 @@ async function importTtfDatabase(editionId: string, dbPath: string): Promise<{
       console.log('Discriminators table error:', e);
     }
 
-    // Import ayat - TTF structure: id, surah, quarter, page, ayah, words_count, glyphs_count
-    const ayatResult = sqlDb.exec('SELECT * FROM ayat');
+    // Import ayat
     const ayahMap: Record<number, number> = {};
-
-    if (ayatResult.length > 0 && ayatResult[0].values) {
-      console.log(`Found ${ayatResult[0].values.length} ayat`);
+    try {
+      const ayatRows = sqlDb.prepare('SELECT * FROM ayat').all() as any[];
+      console.log(`Found ${ayatRows.length} ayat`);
       
-      for (const row of ayatResult[0].values) {
+      for (const row of ayatRows) {
         try {
-          const ayahId = Number(row[0]) || 0;
+          const ayahId = Number(row.id || row[0]) || 0;
           await db.ttfMushafAyah.create({
             data: {
               editionId,
               id: ayahId,
-              surahId: Number(row[1]) || 0,
-              ayah: Number(row[4]) || 0,
-              page: Number(row[3]) || 0,
-              quarter: Number(row[2]) || 0,
-              wordsCount: Number(row[5]) || 0,
-              glyphsCount: Number(row[6]) || 0,
+              surahId: Number(row.surahId || row.surah_id || row.surah || row[1]) || 0,
+              ayah: Number(row.ayah || row.ayah_number || row[4]) || 0,
+              page: Number(row.page || row.page_number || row[3]) || 0,
+              quarter: Number(row.quarter || row[2]) || 0,
+              wordsCount: Number(row.wordsCount || row.words_count || row[5]) || 0,
+              glyphsCount: Number(row.glyphsCount || row.glyphs_count || row[6]) || 0,
             },
           });
           ayahMap[ayahId] = ayahId;
@@ -438,56 +432,54 @@ async function importTtfDatabase(editionId: string, dbPath: string): Promise<{
           // Skip duplicate
         }
       }
-      
       console.log(`Imported ${result.ayat} ayat`);
+    } catch (e) {
+      console.log('Ayat table error:', e);
     }
 
-    // Import words - TTF structure: id, ayah_id, line, word, discriminator, text
+    // Import words
     try {
-      const wordsResult = sqlDb.exec('SELECT * FROM words');
+      const wordsRows = sqlDb.prepare('SELECT * FROM words').all() as any[];
+      console.log(`Found ${wordsRows.length} words`);
       
-      if (wordsResult.length > 0 && wordsResult[0].values) {
-        console.log(`Found ${wordsResult[0].values.length} words`);
+      const wordBatch: any[] = [];
+
+      for (const row of wordsRows) {
+        const ayahId = Number(row.ayahId || row.ayah_id || row[1]);
         
-        const wordBatch: any[] = [];
+        if (!ayahMap[ayahId]) continue;
+        
+        wordBatch.push({
+          editionId,
+          ayahId: ayahId,
+          id: Number(row.id || row[0]) || 0,
+          lineNumber: Number(row.lineNumber || row.line_number || row.line || row[2]) || 0,
+          wordNumber: Number(row.wordNumber || row.word_number || row.word || row[3]) || 0,
+          discriminator: Number(row.discriminator || row[4]) || 0,
+          text: String(row.text || row[5] || ''),
+        });
 
-        for (const row of wordsResult[0].values) {
-          const ayahId = Number(row[1]);
-          
-          if (!ayahMap[ayahId]) continue;
-          
-          wordBatch.push({
-            editionId,
-            ayahId: ayahId,
-            id: Number(row[0]) || 0,
-            lineNumber: Number(row[2]) || 0,
-            wordNumber: Number(row[3]) || 0,
-            discriminator: Number(row[4]) || 0,
-            text: String(row[5] || ''),
-          });
-
-          if (wordBatch.length >= 1000) {
-            try {
-              await db.ttfMushafWord.createMany({ data: wordBatch, skipDuplicates: true });
-              result.words += wordBatch.length;
-            } catch (e: any) {
-              console.error('Word batch error:', e.message);
-            }
-            wordBatch.length = 0;
-          }
-        }
-
-        if (wordBatch.length > 0) {
+        if (wordBatch.length >= 1000) {
           try {
             await db.ttfMushafWord.createMany({ data: wordBatch, skipDuplicates: true });
             result.words += wordBatch.length;
           } catch (e: any) {
-            console.error('Word final batch error:', e.message);
+            console.error('Word batch error:', e.message);
           }
+          wordBatch.length = 0;
         }
-        
-        console.log(`Imported ${result.words} words`);
       }
+
+      if (wordBatch.length > 0) {
+        try {
+          await db.ttfMushafWord.createMany({ data: wordBatch, skipDuplicates: true });
+          result.words += wordBatch.length;
+        } catch (e: any) {
+          console.error('Word final batch error:', e.message);
+        }
+      }
+      
+      console.log(`Imported ${result.words} words`);
     } catch (e) {
       console.log('Words table error:', e);
     }
