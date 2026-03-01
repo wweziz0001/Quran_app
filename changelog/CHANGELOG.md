@@ -18,6 +18,33 @@
 
 ---
 
+## [1.6.1] - 2025-01-17
+
+### 🔧 الإصلاحات
+
+#### ربط تبويب Deployment بـ Microservices
+
+**المشكلة:**
+تبويب `/admin/deployment` كان يعرض بيانات محاكاة (simulated) بدلاً من البيانات الحقيقية من الخدمات المصغرة.
+
+**الحل:**
+- إنشاء API endpoint جديد للتحقق من حالة الخدمات
+- تحديث DeploymentSection للاتصال الفعلي بالخدمات المصغرة
+- إضافة ملخص الحالة ووقت الاستجابة
+
+**الملفات المتأثرة:**
+- `src/app/api/admin/deployment/services-health/route.ts` - 🟢 جديد
+- `src/components/admin/deployment-section.tsx` - تحديث شامل
+
+**النتيجة:**
+- ✅ الاتصال الفعلي بالخدمات المصغرة
+- ✅ عرض الحالة الحقيقية لكل خدمة
+- ✅ ملخص سريع (healthy/unhealthy/not_running)
+
+**التفاصيل:** انظر `changelog/v1.6.1.md`
+
+---
+
 ## [1.6.0] - 2025-01-17
 
 ### ✨ الميزات الجديدة - Stage 2: Microservices Scaffold
