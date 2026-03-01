@@ -144,10 +144,10 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <main className={cn(
-        "flex-1 transition-all duration-300",
+        "flex-1 transition-all duration-300 flex flex-col",
         sidebarOpen ? "ml-64" : "ml-16"
       )}>
-        <header className="h-16 border-b bg-card/50 backdrop-blur sticky top-0 z-40">
+        <header className="h-16 border-b bg-card/50 backdrop-blur sticky top-0 z-40 shrink-0">
           <div className="h-full px-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -168,11 +168,13 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="p-6">
-          {renderSection()}
+        <div className="flex-1 p-6 overflow-hidden">
+          <div className="h-full">
+            {renderSection()}
+          </div>
         </div>
 
-        <footer className="h-12 border-t flex items-center justify-center text-xs text-muted-foreground">
+        <footer className="h-12 border-t flex items-center justify-center text-xs text-muted-foreground shrink-0">
           <p>Quran App Admin Dashboard v1.0.0 • Built with Next.js 16 • Ready for Production</p>
         </footer>
       </main>

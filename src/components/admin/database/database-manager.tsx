@@ -101,16 +101,16 @@ export function DatabaseManager() {
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <TabsContent value="dashboard" className="h-full m-0"><DashboardTab metrics={metrics} tables={tables} setActiveTab={setActiveTab} /></TabsContent>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TabsContent value="dashboard" className="h-full m-0 overflow-auto"><DashboardTab metrics={metrics} tables={tables} setActiveTab={setActiveTab} /></TabsContent>
           <TabsContent value="tables" className="h-full m-0"><TablesTab tables={tables} isLoading={isLoadingTables} userRole={userRole} /></TabsContent>
           <TabsContent value="query" className="h-full m-0"><QueryEditorTab /></TabsContent>
-          <TabsContent value="schema" className="h-full m-0"><SchemaVisualizer tables={tables} /></TabsContent>
-          <TabsContent value="import-export" className="h-full m-0"><ImportExportTab tables={tables} /></TabsContent>
-          <TabsContent value="backup" className="h-full m-0"><BackupTab /></TabsContent>
+          <TabsContent value="schema" className="h-full w-full m-0" style={{ minHeight: '600px' }}><SchemaVisualizer tables={tables} /></TabsContent>
+          <TabsContent value="import-export" className="h-full m-0 overflow-auto"><ImportExportTab tables={tables} /></TabsContent>
+          <TabsContent value="backup" className="h-full m-0 overflow-auto"><BackupTab /></TabsContent>
           <TabsContent value="monitor" className="h-full m-0"><PerformanceMonitor /></TabsContent>
           <TabsContent value="audit" className="h-full m-0"><AuditLogsTab /></TabsContent>
-          <TabsContent value="permissions" className="h-full m-0"><PermissionsTab userRole={userRole} setUserRole={setUserRole} /></TabsContent>
+          <TabsContent value="permissions" className="h-full m-0 overflow-auto"><PermissionsTab userRole={userRole} setUserRole={setUserRole} /></TabsContent>
         </div>
       </Tabs>
     </div>
