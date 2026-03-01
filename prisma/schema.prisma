@@ -35,6 +35,7 @@ model Ayah {
   sajdahType       String?
   wordCount        Int?
   letterCount      Int?
+  deletedAt        DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   Surah            Surah              @relation(fields: [surahId], references: [id], onDelete: Cascade)
@@ -43,11 +44,17 @@ model Ayah {
   RecitationAyah   RecitationAyah[]
   TafsirEntry      TafsirEntry[]
   TranslationEntry TranslationEntry[]
+  SearchIndex      SearchIndex?
+  WordAnalyses     WordAnalysis[]
+  AudioFiles       AudioFile[]
+  CollectionItems  CollectionItem[]
+  Analytics        Analytics[]
 
   @@unique([surahId, ayahNumber])
   @@index([juzNumber])
   @@index([pageNumber])
   @@index([ayahNumberGlobal])
+  @@index([deletedAt])
 }
 
 model Bookmark {
@@ -219,15 +226,18 @@ model Recitation {
   audioUrlHd      String?
   isActive        Boolean          @default(true)
   downloadCount   Int              @default(0)
+  deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime
   Reciter         Reciter          @relation(fields: [reciterId], references: [id], onDelete: Cascade)
   Surah           Surah            @relation(fields: [surahId], references: [id], onDelete: Cascade)
   RecitationAyah  RecitationAyah[]
+  AudioFiles      AudioFile[]
 
   @@unique([surahId, reciterId, style])
   @@index([surahId])
   @@index([reciterId])
+  @@index([deletedAt])
 }
 
 model RecitationAyah {
@@ -261,6 +271,7 @@ model Reciter {
   totalDownloads Int          @default(0)
   popularity     Int          @default(0)
   isActive       Boolean      @default(true)
+  deletedAt      DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   apiIdentifier  String?      @unique
@@ -269,6 +280,7 @@ model Reciter {
   @@index([popularity])
   @@index([isActive])
   @@index([slug])
+  @@index([deletedAt])
 }
 
 model Surah {
@@ -277,6 +289,7 @@ model Surah {
   nameArabic          String
   nameEnglish         String
   nameTransliteration String?
+  slug                String?       @unique
   revelationType      String
   totalAyahs          Int
   pageNumberStart     Int?
@@ -290,6 +303,7 @@ model Surah {
 
   @@index([revelationType])
   @@index([number])
+  @@index([slug])
 }
 
 model TafsirEntry {
@@ -302,6 +316,7 @@ model TafsirEntry {
   htmlContent      String?
   pageNumber       Int?
   wordExplanations String?
+  deletedAt        DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime
   TafsirSource     TafsirSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -311,6 +326,7 @@ model TafsirEntry {
   @@unique([ayahId, sourceId])
   @@index([sourceId])
   @@index([surahId])
+  @@index([deletedAt])
 }
 
 model TafsirSource {
@@ -339,6 +355,7 @@ model TranslationEntry {
   sourceId          String
   text              String
   footnotes         String?
+  deletedAt         DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime
   TranslationSource TranslationSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -346,6 +363,7 @@ model TranslationEntry {
 
   @@unique([ayahId, sourceId])
   @@index([sourceId])
+  @@index([deletedAt])
 }
 
 model TranslationSource {
@@ -411,7 +429,6 @@ model TtfMushafEdition {
   fontExtension    String             @default(".ttf")
   fontFilePath     String?
   dbFilePath       String?
-  // الخط الخاص لأسماء السور والبسملة (000.ttf)
   specialFontUrl   String?
   specialFontName  String?
   specialFontSize  Int?
@@ -486,6 +503,7 @@ model User {
   avatarUrl      String?
   locale         String           @default("en")
   theme          String           @default("system")
+  deletedAt      DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime
   lastLoginAt    DateTime?
@@ -493,9 +511,14 @@ model User {
   Bookmark       Bookmark[]
   ReadingHistory ReadingHistory[]
   UserSetting    UserSetting?
+  Sessions       UserSession[]
+  Notifications  Notification[]
+  Collections    Collection[]
+  Analytics      Analytics[]
 
   @@index([role])
   @@index([email])
+  @@index([deletedAt])
 }
 
 model UserSetting {
@@ -519,23 +542,23 @@ model UserSetting {
 // ==================== Database Management System Models ====================
 
 model AuditLog {
-  id           String   @id @default(cuid())
-  timestamp    DateTime @default(now())
-  userId       String?
-  userName     String?
-  userRole     String?
-  action       String
-  resourceType String
-  resourceName String
-  resourceId   String?
-  details      String?
-  query        String?
-  affectedRows Int?
+  id            String    @id @default(cuid())
+  timestamp     DateTime  @default(now())
+  userId        String?
+  userName      String?
+  userRole      String?
+  action        String
+  resourceType  String
+  resourceName  String
+  resourceId    String?
+  details       String?
+  query         String?
+  affectedRows  Int?
   executionTime Float?
-  ipAddress    String?
-  userAgent    String?
-  status       String   @default("success")
-  errorMessage String?
+  ipAddress     String?
+  userAgent     String?
+  status        String    @default("success")
+  errorMessage  String?
 
   @@index([timestamp])
   @@index([userId])
@@ -544,16 +567,16 @@ model AuditLog {
 }
 
 model SavedQuery {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
   query       String
   tags        String?
-  isFavorite  Boolean  @default(false)
-  useCount    Int      @default(0)
+  isFavorite  Boolean   @default(false)
+  useCount    Int       @default(0)
   createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   lastUsedAt  DateTime?
 
   @@index([name])
@@ -561,18 +584,18 @@ model SavedQuery {
 }
 
 model BackupRecord {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  type         String   @default("full")
-  size         Int      @default(0)
-  status       String   @default("pending")
+  type         String    @default("full")
+  size         Int       @default(0)
+  status       String    @default("pending")
   duration     Int?
   checksum     String?
   location     String?
   errorMessage String?
   metadata     String?
   createdBy    String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   completedAt  DateTime?
 
   @@index([status])
@@ -580,14 +603,242 @@ model BackupRecord {
 }
 
 model QueryHistory {
-  id             String   @id @default(cuid())
-  query          String
-  executionTime  Float
-  rowCount       Int?
-  status         String   @default("success")
-  errorMessage   String?
-  userId         String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  query         String
+  executionTime Float
+  rowCount      Int?
+  status        String   @default("success")
+  errorMessage  String?
+  userId        String?
+  createdAt     DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ==================== Enterprise Stage 1 Models ====================
+
+// 1. SearchIndex - فهرس البحث الدلالي
+model SearchIndex {
+  id               String   @id @default(cuid())
+  ayahId           Int      @unique
+  content          String
+  contentNormalized String?
+  embedding        String?
+  embeddingModel   String?
+  language         String   @default("ar")
+  lastIndexed      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  Ayah             Ayah     @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+
+  @@index([language])
+  @@index([lastIndexed])
+  @@map("search_indices")
+}
+
+// 2. WordAnalysis - تحليل الكلمات
+model WordAnalysis {
+  id             Int      @id @default(autoincrement())
+  ayahId         Int
+  wordPosition   Int
+  word           String
+  wordNormalized String?
+  root           String?
+  lemma          String?
+  pos            String?
+  morphology     String?
+  meaning        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  Ayah           Ayah     @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+
+  @@unique([ayahId, wordPosition])
+  @@index([root])
+  @@index([lemma])
+  @@index([word])
+  @@map("word_analyses")
+}
+
+// 3. Notification - الإشعارات
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  data      String?
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+// 4. Analytics - تحليلات الاستخدام
+model Analytics {
+  id         String    @id @default(cuid())
+  eventType  String
+  userId     String?
+  surahId    Int?
+  ayahId     Int?
+  reciterId  String?
+  sessionId  String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   String?
+  timestamp  DateTime  @default(now())
+  User       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  Ayah       Ayah?     @relation(fields: [ayahId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([userId])
+  @@index([surahId])
+  @@map("analytics")
+}
+
+// 5. UserSession - جلسات المستخدمين
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  lastActivity DateTime @default(now())
+  createdAt    DateTime @default(now())
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// 6. TajweedRule - قواعد التجويد
+model TajweedRule {
+  id          String   @id @default(cuid())
+  nameArabic  String
+  nameEnglish String
+  code        String   @unique
+  description String?
+  color       String?
+  examples    String?
+  category    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([category])
+  @@map("tajweed_rules")
+}
+
+// 7. AudioFile - ملفات الصوت HLS
+model AudioFile {
+  id              String     @id @default(cuid())
+  recitationId    String
+  ayahId          Int
+  format          String     @default("mp3")
+  hlsPlaylistUrl  String?
+  hlsSegmentsUrl  String?
+  fileSize        Int?
+  durationMs      Int?
+  bitrate         Int?
+  sampleRate      Int?
+  channels        Int?       @default(2)
+  checksum        String?
+  status          String     @default("pending")
+  processedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  Recitation      Recitation @relation(fields: [recitationId], references: [id], onDelete: Cascade)
+  Ayah            Ayah       @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+
+  @@unique([recitationId, ayahId, format])
+  @@index([status])
+  @@map("audio_files")
+}
+
+// 8. Collection - مجموعات المستخدم
+model Collection {
+  id              String          @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  isPublic        Boolean         @default(false)
+  color           String?
+  icon            String?
+  itemCount       Int             @default(0)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  CollectionItems CollectionItem[]
+
+  @@index([userId])
+  @@index([isPublic])
+  @@map("collections")
+}
+
+// 9. CollectionItem - عناصر المجموعة
+model CollectionItem {
+  id           String     @id @default(cuid())
+  collectionId String
+  ayahId       Int
+  note         String?
+  sortOrder    Int        @default(0)
+  addedAt      DateTime   @default(now())
+  Collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  Ayah         Ayah       @relation(fields: [ayahId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, ayahId])
+  @@index([collectionId])
+  @@map("collection_items")
+}
+
+// 10. APILog - سجل طلبات API
+model APILog {
+  id           String   @id @default(cuid())
+  endpoint     String
+  method       String
+  userId       String?
+  ipAddress    String?
+  userAgent    String?
+  statusCode   Int
+  responseTime Int
+  requestSize  Int?
+  responseSize Int?
+  error        String?
+  timestamp    DateTime @default(now())
+
+  @@index([endpoint])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([statusCode])
+  @@map("api_logs")
+}
+
+// 11. FeatureFlag - ميزات التطبيق
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  rollout     Int      @default(100)
+  conditions  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([enabled])
+  @@map("feature_flags")
 }
