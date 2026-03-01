@@ -195,17 +195,30 @@ export const useDatabaseStore = create<DatabaseState>()(
           fetchTables: async () => {
             set({ isLoadingTables: true });
             try {
-              const response = await fetch('/api/admin/db/tables');
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000);
+              
+              const response = await fetch('/api/admin/db/tables', {
+                signal: controller.signal
+              });
+              clearTimeout(timeoutId);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+              
               const result = await response.json();
               if (result.success) {
                 set({ 
                   tables: result.tables,
                   connectionStatus: 'connected',
                 });
+              } else {
+                throw new Error(result.error || 'Failed to fetch tables');
               }
-            } catch (error) {
+            } catch (error: any) {
               set({ connectionStatus: 'disconnected' });
-              console.error('Failed to fetch tables:', error);
+              console.error('Failed to fetch tables:', error?.message || error);
             } finally {
               set({ isLoadingTables: false });
             }

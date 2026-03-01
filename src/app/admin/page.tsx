@@ -16,7 +16,6 @@ import { useTheme } from 'next-themes';
 
 // Import section components
 import { ArchitectureSection } from '@/components/admin/architecture-section';
-import { DatabaseBrowser } from '@/components/admin/database-browser';
 import { DatabaseManager } from '@/components/admin/database/database-manager';
 import { AndroidSection } from '@/components/admin/android-section';
 import { FilesSection } from '@/components/admin/files-section';
@@ -56,7 +55,6 @@ const navItems: NavItem[] = [
   { id: 'deployment', label: 'Deployment', icon: <Cloud className="h-4 w-4" /> },
   { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
   { id: 'db-manager', label: 'DB Manager', icon: <Database className="h-4 w-4" />, badge: 'NEW' },
-  { id: 'database', label: 'Database', icon: <Database className="h-4 w-4" />, badge: 'BROWSER' },
   { id: 'files', label: 'Files', icon: <FolderOpen className="h-4 w-4" />, badge: 'EDITOR'  },
 ];
 
@@ -70,7 +68,6 @@ export default function AdminDashboard() {
     switch (activeSection) {
       case 'dashboard': return <DashboardSection />;
       case 'architecture': return <ArchitectureSection />;
-      case 'database': return <DatabaseBrowser />;
       case 'db-manager': return <DatabaseManager />;
       case 'api': return <ApiSection />;
       case 'quran': return <QuranManagementSection />;

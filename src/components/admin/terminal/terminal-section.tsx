@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useCallback, useSyncExternalStore } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, X, Terminal as TerminalIcon, 
-  Settings, Clock, Activity, Loader2
+  Settings, Activity, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Dynamic import with no SSR for the terminal
+// Dynamic import with no SSR
 const TerminalClient = dynamic(
   () => import('./terminal-client').then(mod => ({ default: mod.TerminalClient })),
   { 
@@ -30,79 +30,51 @@ interface TerminalTab {
   id: string;
   name: string;
   sessionId?: string;
-  createdAt: Date;
   status: 'connecting' | 'connected' | 'disconnected';
 }
 
-// Custom hook to check if we're on client
-function useIsClient() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+// Time display component (updates itself)
+function TimeDisplay() {
+  const [time, setTime] = useState(() => new Date().toLocaleTimeString());
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return <span>{time}</span>;
 }
 
 export function TerminalSection() {
-  const isClient = useIsClient();
   const [tabs, setTabs] = useState<TerminalTab[]>([
-    { id: '1', name: 'Terminal 1', createdAt: new Date(), status: 'connecting' }
+    { id: '1', name: 'Terminal 1', status: 'connecting' }
   ]);
   const [activeTabId, setActiveTabId] = useState('1');
-  const [sessions, setSessions] = useState<Map<string, string>>(new Map());
-
-  const activeTab = tabs.find(t => t.id === activeTabId);
+  const sessionsRef = useRef<Map<string, string>>(new Map());
 
   const addTab = useCallback(() => {
-    const newId = (parseInt(tabs[tabs.length - 1]?.id || '0') + 1).toString();
-    const newTab: TerminalTab = {
-      id: newId,
-      name: `Terminal ${newId}`,
-      createdAt: new Date(),
-      status: 'connecting'
-    };
-    setTabs(prev => [...prev, newTab]);
+    const newId = String(tabs.length + 1);
+    setTabs(prev => [...prev, { id: newId, name: `Terminal ${newId}`, status: 'connecting' }]);
     setActiveTabId(newId);
-  }, [tabs]);
+  }, [tabs.length]);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs(prev => {
       if (prev.length === 1) return prev;
       const newTabs = prev.filter(t => t.id !== tabId);
-      if (activeTabId === tabId) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
-      }
+      setActiveTabId(newTabs[newTabs.length - 1].id);
       return newTabs;
     });
-  }, [activeTabId]);
+  }, []);
 
   const handleSessionCreated = useCallback((tabId: string, sessionId: string) => {
-    setSessions(prev => new Map(prev).set(tabId, sessionId));
+    sessionsRef.current.set(tabId, sessionId);
     setTabs(prev => prev.map(t => 
-      t.id === tabId 
-        ? { ...t, sessionId, status: 'connected' as const }
-        : t
+      t.id === tabId ? { ...t, sessionId, status: 'connected' as const } : t
     ));
   }, []);
-
-  const handleExit = useCallback((tabId: string, code: number) => {
-    setTabs(prev => prev.map(t =>
-      t.id === tabId
-        ? { ...t, status: 'disconnected' as const }
-        : t
-    ));
-  }, []);
-
-  if (!isClient) {
-    return (
-      <div className="h-full flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="text-muted-foreground text-sm">Initializing terminal...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -155,23 +127,14 @@ export function TerminalSection() {
                 variant="ghost"
                 size="icon"
                 className="h-4 w-4 p-0 opacity-60 hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(tab.id);
-                }}
+                onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
               >
                 <X className="h-3 w-3" />
               </Button>
             )}
           </div>
         ))}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={addTab}
-          title="New Terminal"
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={addTab} title="New Terminal">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -186,14 +149,13 @@ export function TerminalSection() {
               activeTabId === tab.id ? "block" : "hidden"
             )}
           >
-            <TerminalClient
-              key={tab.id}
-              tabId={tab.id}
-              sessionId={sessions.get(tab.id)}
-              userId="admin-user"
-              onSessionCreated={(sId) => handleSessionCreated(tab.id, sId)}
-              onExit={(code) => handleExit(tab.id, code)}
-            />
+            {activeTabId === tab.id && (
+              <TerminalClient
+                tabId={tab.id}
+                userId="admin"
+                onSessionCreated={(sId) => handleSessionCreated(tab.id, sId)}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -201,10 +163,7 @@ export function TerminalSection() {
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2 border-t bg-card text-xs text-muted-foreground">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {new Date().toLocaleTimeString()}
-          </span>
+          <TimeDisplay />
           <span>bash</span>
           <span>UTF-8</span>
         </div>
