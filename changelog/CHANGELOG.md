@@ -18,6 +18,43 @@
 
 ---
 
+## [1.4.0] - 2025-03-01
+
+### ✨ الميزات الجديدة
+
+#### AI-Powered Terminal System - نظام الطرفية المدعوم بالذكاء الاصطناعي
+
+**الوصف:**
+إضافة نظام طرفية متكامل ومتطور داخل لوحة التحكم مع دعم الذكاء الاصطناعي وإمكانيات متقدمة.
+
+**الميزات:**
+1. **Terminal Emulator** - محرر طرفية متقدم مع:
+   - xterm.js مع دعم ANSI colors الكامل
+   - Multi-tab interface
+   - WebSocket للاتصال في الوقت الحقيقي
+
+2. **AI Integration** - تكامل الذكاء الاصطناعي:
+   - تحويل اللغة الطبيعية إلى أوامر
+   - شرح الأوامر بلغة بسيطة
+   - كشف المخاطر قبل التنفيذ
+
+3. **Security Features** - ميزات الأمان:
+   - Rate limiting (100 أمر/دقيقة)
+   - Risk pattern detection
+   - Confirmation dialogs للأوامر الخطرة
+
+**الملفات الجديدة:**
+- `mini-services/terminal-service/` (خدمة الطرفية الخلفية)
+- `src/components/admin/terminal/` (مكونات الواجهة)
+- `docs/AI_TERMINAL_SYSTEM_SPEC.md` (المواصفات التقنية)
+
+**الملفات المحدثة:**
+- `src/app/admin/page.tsx` (إضافة قسم Terminal)
+
+**التفاصيل:** انظر `changelog/v1.4.0.md`
+
+---
+
 ## [1.3.2] - 2025-03-01
 
 ### ✨ الميزات الجديدة

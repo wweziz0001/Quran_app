@@ -1,0 +1,14 @@
+{
+  "name": "terminal-service",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.0",
+    "uuid": "^11.1.0",
+    "z-ai-web-dev-sdk": "^0.0.16"
+  }
+}

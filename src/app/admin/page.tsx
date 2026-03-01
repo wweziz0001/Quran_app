@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   LayoutDashboard, Database, Code, Shield, Settings, 
   BookOpen, Headphones, Smartphone, Cloud, FolderOpen,
-  Menu, Moon, Sun, Search, Globe, Download
+  Menu, Moon, Sun, Search, Globe, Download, Terminal
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -28,8 +28,9 @@ import { DashboardSection } from '@/components/admin/dashboard-section';
 import { QuranManagementSection } from '@/components/admin/quran-management-section';
 import { MushafEditionsSection } from '@/components/admin/mushaf-editions-section';
 import { ImportSection } from '@/components/admin/import-section';
+import { TerminalSection } from '@/components/admin/terminal/terminal-section';
 
-type Section = 'dashboard' | 'architecture' | 'database' | 'db-manager' | 'api' | 'reciters' | 'tafsir' | 'quran' | 'mushafs' | 'import' | 'settings' | 'android' | 'deployment' | 'security' | 'files';
+type Section = 'dashboard' | 'architecture' | 'database' | 'db-manager' | 'api' | 'reciters' | 'tafsir' | 'quran' | 'mushafs' | 'import' | 'settings' | 'android' | 'deployment' | 'security' | 'files' | 'terminal';
 
 interface NavItem {
   id: Section;
@@ -41,6 +42,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'architecture', label: 'Architecture', icon: <Globe className="h-4 w-4" /> },
+  { id: 'terminal', label: 'Terminal', icon: <Terminal className="h-4 w-4" />, badge: 'AI' },
   { id: 'import', label: 'Import Data', icon: <Download className="h-4 w-4" />, badge: 'NEW' },
   { id: 'api', label: 'API Docs', icon: <Code className="h-4 w-4" /> },
   { id: 'quran', label: 'Quran', icon: <BookOpen className="h-4 w-4" />, badge: 'CRUD' },
@@ -79,6 +81,7 @@ export default function AdminDashboard() {
       case 'deployment': return <DeploymentSection />;
       case 'security': return <SecuritySection />;
       case 'files': return <FilesSection />;
+      case 'terminal': return <TerminalSection />;
       default: return <DashboardSection />;
     }
   };
