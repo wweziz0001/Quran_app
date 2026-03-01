@@ -57,6 +57,14 @@ spec:
             name: users-service
             port:
               number: 3005
+      # Reciter Service
+      - path: /reciter(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: reciter-service
+            port:
+              number: 3006
       # AI Service
       - path: /ai(/|$)(.*)
         pathType: Prefix

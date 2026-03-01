@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 
 import embeddingsRoutes from './routes/embeddings';
 import chatRoutes from './routes/chat';
+import tafsirAiRoutes from './routes/tafsir-ai';
 
 const app = new Hono();
 
@@ -26,6 +27,7 @@ app.get('/health', (c) => {
 
 app.route('/embeddings', embeddingsRoutes);
 app.route('/chat', chatRoutes);
+app.route('/tafsir-ai', tafsirAiRoutes);
 
 // Error handler
 app.onError((err, c) => {
