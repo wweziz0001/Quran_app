@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quran
+  labels:
+    app: quran-platform
+    environment: production

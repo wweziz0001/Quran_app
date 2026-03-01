@@ -1,0 +1,11 @@
+{
+  "name": "@quran/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@prisma/client": "6",
+    "zod": "^4.0.2"
+  }
+}

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: quran
+data:
+  DATABASE_URL: "file:/data/quran.db"
+  DB_PATH: "/data"
+  DB_BACKUP_PATH: "/data/backups"
