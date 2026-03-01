@@ -18,6 +18,31 @@
 
 ---
 
+## [1.3.2] - 2025-03-01
+
+### ✨ الميزات الجديدة
+
+#### Schema Visualizer - تحسينات العرض والعلاقات
+
+**المشكلة:**
+- لم تظهر العلاقات بين الجداول
+- لم يكن هناك تفاعل عند التأشير على خطوط العلاقات
+- الجداول متقاربة جداً
+
+**الحل:**
+- ✅ إضافة API لاستخراج العلاقات من Prisma Schema (23 علاقة)
+- ✅ إبراز تفاعلي للجداول والحقول عند التأشير على العلاقة
+- ✅ زيادة المسافة بين الجداول من 50px إلى 150px
+
+**الملفات المتأثرة:**
+- `src/app/api/admin/db/schema/route.ts` (جديد)
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/app/admin/page.tsx`
+
+**التفاصيل:** انظر `changelog/v1.3.2.md`
+
+---
+
 ## [1.3.1] - 2025-01-19
 
 ### 🔧 الإصلاحات
@@ -29,23 +54,16 @@
 1. **Dashboard**: أزرار Quick Actions + Pagination للجداول
 2. **Tables**: تعديل البيانات + Scroll bar في الفهرس
 3. **Query Editor**: مربع الاستعلام + أزرار التنفيذ
-4. **Schema**: عرض الجداول والعلاقات + إبراز عند التأشير
+4. **Schema**: عرض الجداول (الإصلاحات الأساسية)
 5. **Monitor**: ترتيب المربعات + البيانات الصحيحة
 6. **Audit Logs**: تسجيل جميع الأحداث (UPDATE, DELETE)
 7. **Permissions**: إضافة تعديل الصلاحيات
-
-**التحسينات الجديدة في Schema Tab:**
-- ✅ إضافة عرض العلاقات من Prisma Schema (23 علاقة)
-- ✅ إبراز الجداول والحقول عند التأشير على خط العلاقة
-- ✅ زيادة المسافة بين الجداول من 50px إلى 150px
 
 **الملفات المتأثرة:**
 - `src/components/admin/database/database-manager.tsx`
 - `src/components/admin/database/schema-visualizer.tsx`
 - `src/components/admin/database/performance-monitor.tsx`
 - `src/app/api/admin/database/data/[table]/[id]/route.ts`
-- `src/app/api/admin/db/schema/route.ts` (جديد)
-- `src/app/admin/page.tsx`
 
 **التفاصيل:** انظر `changelog/v1.3.1.md`
 
