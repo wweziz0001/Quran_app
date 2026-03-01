@@ -9,24 +9,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   Database, Table2, Code, Upload, Download, Save, Clock, BarChart3, FileJson,
-  Play, Plus, Search, MoreHorizontal, Trash2, Edit, Copy, Check, AlertTriangle,
-  RefreshCw, X, Loader2, ChevronLeft, ChevronRight, Star, Shield, Settings,
+  Play, Plus, Search, Trash2, Check, AlertTriangle,
+  RefreshCw, X, Loader2, ChevronLeft, ChevronRight, Shield,
   Network, Activity, Key
 } from 'lucide-react';
 import { useDatabaseStore } from '@/stores/database-store';
-import { SQLEditor } from './sql-editor';
 import { SchemaVisualizer } from './schema-visualizer';
 import { DataEditor } from './data-editor';
 import { PerformanceMonitor } from './performance-monitor';
 import {
-  ROLE_PERMISSIONS, getPermissions, getRoleDisplayName, getPermissionDisplayName,
-  PERMISSION_CATEGORIES, CATEGORY_NAMES, type UserRole
+  getPermissions, getRoleDisplayName, getPermissionDisplayName,
+  PERMISSION_CATEGORIES, CATEGORY_NAMES, type UserRole, type DatabasePermission
 } from '@/lib/db-permissions';
 
 // ==================== Main Database Manager Component ====================
@@ -102,15 +102,15 @@ export function DatabaseManager() {
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <TabsContent value="dashboard" className="h-full m-0"><DashboardTab metrics={metrics} tables={tables} /></TabsContent>
+          <TabsContent value="dashboard" className="h-full m-0"><DashboardTab metrics={metrics} tables={tables} setActiveTab={setActiveTab} /></TabsContent>
           <TabsContent value="tables" className="h-full m-0"><TablesTab tables={tables} isLoading={isLoadingTables} userRole={userRole} /></TabsContent>
-          <TabsContent value="query" className="h-full m-0"><SQLEditor /></TabsContent>
+          <TabsContent value="query" className="h-full m-0"><QueryEditorTab /></TabsContent>
           <TabsContent value="schema" className="h-full m-0"><SchemaVisualizer tables={tables} /></TabsContent>
           <TabsContent value="import-export" className="h-full m-0"><ImportExportTab tables={tables} /></TabsContent>
           <TabsContent value="backup" className="h-full m-0"><BackupTab /></TabsContent>
           <TabsContent value="monitor" className="h-full m-0"><PerformanceMonitor /></TabsContent>
           <TabsContent value="audit" className="h-full m-0"><AuditLogsTab /></TabsContent>
-          <TabsContent value="permissions" className="h-full m-0"><PermissionsTab userRole={userRole} /></TabsContent>
+          <TabsContent value="permissions" className="h-full m-0"><PermissionsTab userRole={userRole} setUserRole={setUserRole} /></TabsContent>
         </div>
       </Tabs>
     </div>
@@ -118,7 +118,12 @@ export function DatabaseManager() {
 }
 
 // ==================== Dashboard Tab ====================
-function DashboardTab({ metrics, tables }: { metrics: any; tables: any[] }) {
+function DashboardTab({ metrics, tables, setActiveTab }: { metrics: any; tables: any[]; setActiveTab: (tab: string) => void }) {
+  const [tablePage, setTablePage] = useState(1);
+  const tablesPerPage = 10;
+  const totalPages = Math.ceil(tables.length / tablesPerPage);
+  const paginatedTables = tables.slice((tablePage - 1) * tablesPerPage, tablePage * tablesPerPage);
+
   return (
     <ScrollArea className="h-full p-6">
       <div className="space-y-6">
@@ -167,7 +172,10 @@ function DashboardTab({ metrics, tables }: { metrics: any; tables: any[] }) {
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle>Tables Overview</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Tables Overview</CardTitle>
+              <Badge variant="outline">{tables.length} total</Badge>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
@@ -179,7 +187,7 @@ function DashboardTab({ metrics, tables }: { metrics: any; tables: any[] }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tables.slice(0, 10).map((table) => (
+                  {paginatedTables.map((table) => (
                     <TableRow key={table.name}>
                       <TableCell className="font-mono">{table.name}</TableCell>
                       <TableCell><Badge variant={table.type === 'table' ? 'default' : 'secondary'}>{table.type}</Badge></TableCell>
@@ -189,22 +197,47 @@ function DashboardTab({ metrics, tables }: { metrics: any; tables: any[] }) {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <span className="text-sm text-muted-foreground">
+                    Page {tablePage} of {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                      disabled={tablePage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTablePage(p => Math.min(totalPages, p + 1))}
+                      disabled={tablePage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('query')}>
                 <Code className="h-4 w-4 mr-2" /> New Query
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('import-export')}>
                 <Upload className="h-4 w-4 mr-2" /> Import Data
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('import-export')}>
                 <Download className="h-4 w-4 mr-2" /> Export Data
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('backup')}>
                 <Save className="h-4 w-4 mr-2" /> Create Backup
               </Button>
             </CardContent>
@@ -248,7 +281,7 @@ function TablesTab({ tables, isLoading, userRole }: { tables: any[]; isLoading: 
 
   return (
     <div className="h-full flex">
-      <div className="w-80 border-r flex flex-col">
+      <div className="w-80 border-r flex flex-col shrink-0">
         <div className="p-4 border-b">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -261,22 +294,26 @@ function TablesTab({ tables, isLoading, userRole }: { tables: any[]; isLoading: 
           ) : (
             <div className="p-2">
               {filteredTables.map((table) => (
-                <button key={table.name} className={`w-full text-left p-3 rounded-lg hover:bg-accent transition-colors ${selectedTable?.name === table.name ? 'bg-accent' : ''}`} onClick={() => setSelectedTable(table)}>
+                <button 
+                  key={table.name} 
+                  className={`w-full text-left p-3 rounded-lg hover:bg-accent transition-colors ${selectedTable?.name === table.name ? 'bg-accent' : ''}`} 
+                  onClick={() => setSelectedTable(table)}
+                >
                   <div className="flex items-center gap-2"><Table2 className="h-4 w-4 text-muted-foreground" /><span className="font-mono text-sm">{table.name}</span></div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground"><span>{table.rowCount?.toLocaleString()} rows</span><span>•</span><span>{table.columns?.length} cols</span></div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground"><span>{table.rowCount?.toLocaleString()} rows</span><span>•</span><span>{table.columns?.length || 0} cols</span></div>
                 </button>
               ))}
             </div>
           )}
         </ScrollArea>
       </div>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {selectedTable ? (
           <>
-            <div className="border-b p-4 flex items-center justify-between">
+            <div className="border-b p-4 flex items-center justify-between shrink-0">
               <div>
                 <h2 className="text-lg font-semibold font-mono">{selectedTable.name}</h2>
-                <p className="text-sm text-muted-foreground">{selectedTable.rowCount?.toLocaleString()} rows • {selectedTable.columns?.length} columns</p>
+                <p className="text-sm text-muted-foreground">{selectedTable.rowCount?.toLocaleString()} rows • {selectedTable.columns?.length || 0} columns</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant={viewMode === 'browse' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('browse')}>
@@ -290,7 +327,7 @@ function TablesTab({ tables, isLoading, userRole }: { tables: any[]; isLoading: 
               </div>
             </div>
             {viewMode === 'edit' && permissions.canUpdateData ? (
-              <DataEditor tableName={selectedTable.name} columns={selectedTable.columns || []} />
+              <DataEditor tableName={selectedTable.name} columns={tableData.columns || []} />
             ) : (
               <ScrollArea className="flex-1">
                 {tableData.loading ? (
@@ -318,6 +355,167 @@ function TablesTab({ tables, isLoading, userRole }: { tables: any[]; isLoading: 
           <div className="flex-1 flex items-center justify-center text-muted-foreground"><div className="text-center"><Table2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>Select a table to view its data</p></div></div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ==================== Query Editor Tab ====================
+function QueryEditorTab() {
+  const [query, setQuery] = useState('SELECT * FROM Surah LIMIT 10;');
+  const [result, setResult] = useState<any>(null);
+  const [executing, setExecuting] = useState(false);
+  const [queryHistory, setQueryHistory] = useState<{query: string; time: Date}[]>([]);
+
+  const executeQuery = async () => {
+    if (!query.trim()) {
+      toast.error('Please enter a query');
+      return;
+    }
+    setExecuting(true);
+    try {
+      const response = await fetch('/api/admin/db/query', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ query }) 
+      });
+      const data = await response.json();
+      setResult(data);
+      setQueryHistory(prev => [{query, time: new Date()}, ...prev.slice(0, 19)]);
+      
+      // Log to audit
+      await fetch('/api/admin/db/audit-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'QUERY',
+          resourceType: 'database',
+          resourceName: 'query',
+          query,
+          status: data.success ? 'success' : 'failed',
+        }),
+      });
+    } catch { 
+      toast.error('Query execution failed'); 
+    }
+    finally { setExecuting(false); }
+  };
+
+  const loadFromHistory = (q: string) => {
+    setQuery(q);
+  };
+
+  const formatQuery = () => {
+    let formatted = query
+      .replace(/\s+/g, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/SELECT/gi, 'SELECT\n  ')
+      .replace(/FROM/gi, '\nFROM')
+      .replace(/WHERE/gi, '\nWHERE')
+      .replace(/ORDER BY/gi, '\nORDER BY')
+      .replace(/GROUP BY/gi, '\nGROUP BY')
+      .replace(/JOIN/gi, '\nJOIN');
+    setQuery(formatted);
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Query Input */}
+      <div className="border-b p-4 shrink-0">
+        <textarea
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Enter SQL query..."
+          className="w-full min-h-[150px] p-3 border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <div className="mt-4 flex gap-2">
+          <Button onClick={executeQuery} disabled={executing}>
+            {executing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+            Execute
+          </Button>
+          <Button variant="outline" onClick={formatQuery}>
+            Format
+          </Button>
+          <Button variant="outline" onClick={() => {setQuery(''); setResult(null);}}>
+            Clear
+          </Button>
+        </div>
+      </div>
+
+      {/* Results */}
+      <ScrollArea className="flex-1">
+        {result ? (
+          <div className="p-4">
+            {result.success ? (
+              <>
+                <div className="text-sm text-muted-foreground mb-4 flex items-center gap-4">
+                  <Badge>{result.rowCount} rows</Badge>
+                  <Badge variant="outline">{result.executionTime?.toFixed(2)}ms</Badge>
+                  {result.warning && <Badge variant="secondary">Warning: {result.warning}</Badge>}
+                </div>
+                {result.data && result.data.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          {result.columns?.map((col: any) => (
+                            <TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.data.slice(0, 500).map((row: any, i: number) => (
+                          <TableRow key={i}>
+                            {result.columns?.map((col: any) => (
+                              <TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">
+                                {row[col.name] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col.name])}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">No results</div>
+                )}
+              </>
+            ) : (
+              <div className="text-destructive flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {result.error}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <Code className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Execute a query to see results</p>
+              <p className="text-xs mt-1">Press Ctrl+Enter to execute</p>
+            </div>
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Query History */}
+      {queryHistory.length > 0 && (
+        <div className="border-t p-2 bg-muted/30 shrink-0">
+          <div className="text-xs text-muted-foreground mb-2">Recent Queries:</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {queryHistory.slice(0, 5).map((h, i) => (
+              <Button
+                key={i}
+                variant="outline"
+                size="sm"
+                className="text-xs font-mono shrink-0"
+                onClick={() => loadFromHistory(h.query)}
+              >
+                {h.query.substring(0, 30)}...
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -462,7 +660,9 @@ function BackupTab() {
         <Card>
           <CardHeader><CardTitle>Existing Backups</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+            {loading ? <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div> : backups.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">No backups yet</div>
+            ) : (
               <Table>
                 <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Size</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
                 <TableBody>
@@ -495,15 +695,38 @@ function AuditLogsTab() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/db/audit-logs?limit=100');
+      const d = await response.json();
+      if (d.success) setLogs(d.logs);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/admin/db/audit-logs?limit=100').then(r => r.json()).then(d => d.success && setLogs(d.logs)).finally(() => setLoading(false));
+    fetchLogs();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLogs, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b p-4"><h2 className="text-lg font-semibold">Audit Logs</h2></div>
+      <div className="border-b p-4 flex items-center justify-between shrink-0">
+        <h2 className="text-lg font-semibold">Audit Logs</h2>
+        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
+      </div>
       <ScrollArea className="flex-1">
-        {loading ? <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+        {loading && logs.length === 0 ? (
+          <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : logs.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">No audit logs yet</div>
+        ) : (
           <Table>
             <TableHeader><TableRow><TableHead>Timestamp</TableHead><TableHead>Action</TableHead><TableHead>Resource</TableHead><TableHead>Status</TableHead><TableHead>Details</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -525,8 +748,18 @@ function AuditLogsTab() {
 }
 
 // ==================== Permissions Tab ====================
-function PermissionsTab({ userRole }: { userRole: UserRole }) {
+function PermissionsTab({ userRole, setUserRole }: { userRole: UserRole; setUserRole: (role: UserRole) => void }) {
   const permissions = getPermissions(userRole);
+  const [customPermissions, setCustomPermissions] = useState<DatabasePermission | null>(null);
+
+  const handlePermissionChange = (perm: keyof DatabasePermission, value: boolean) => {
+    if (!customPermissions) return;
+    setCustomPermissions({ ...customPermissions, [perm]: value });
+  };
+
+  const applyCustomPermissions = () => {
+    toast.success('Custom permissions applied for this session');
+  };
 
   return (
     <ScrollArea className="h-full p-6">
@@ -535,36 +768,59 @@ function PermissionsTab({ userRole }: { userRole: UserRole }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Current Role: {getRoleDisplayName(userRole)}
+              Role Management
             </CardTitle>
             <CardDescription>
-              Permissions for the {getRoleDisplayName(userRole)} role
+              Switch between roles or customize permissions
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex gap-2 mb-6">
+              {(['viewer', 'editor', 'admin'] as UserRole[]).map((role) => (
+                <Button
+                  key={role}
+                  variant={userRole === role ? 'default' : 'outline'}
+                  onClick={() => {
+                    setUserRole(role);
+                    setCustomPermissions(null);
+                  }}
+                >
+                  {getRoleDisplayName(role)}
+                </Button>
+              ))}
+            </div>
+
             <div className="space-y-6">
               {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => (
                 <div key={category}>
                   <h3 className="font-semibold mb-3 text-lg">{CATEGORY_NAMES[category as keyof typeof CATEGORY_NAMES]}</h3>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {perms.map((perm) => (
-                      <div
-                        key={perm}
-                        className={`flex items-center justify-between p-3 rounded-lg border ${
-                          permissions[perm] ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
-                        }`}
-                      >
-                        <span className="text-sm">{getPermissionDisplayName(perm)}</span>
-                        {permissions[perm] ? (
-                          <Check className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                    ))}
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {perms.map((perm) => {
+                      const currentValue = customPermissions ? customPermissions[perm] : permissions[perm];
+                      return (
+                        <div
+                          key={perm}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            currentValue ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
+                          }`}
+                        >
+                          <span className="text-sm">{getPermissionDisplayName(perm)}</span>
+                          <Switch
+                            checked={currentValue}
+                            onCheckedChange={(checked) => handlePermissionChange(perm, checked)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 pt-6 border-t">
+              <Button onClick={applyCustomPermissions}>
+                Apply Custom Permissions
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -575,15 +831,15 @@ function PermissionsTab({ userRole }: { userRole: UserRole }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                 <Badge>مشاهد (Viewer)</Badge>
                 <p className="text-sm text-muted-foreground">Can view tables and data, execute SELECT queries only</p>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                 <Badge variant="secondary">محرر (Editor)</Badge>
                 <p className="text-sm text-muted-foreground">Can view, insert, update, delete data, import/export, and view audit logs</p>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                 <Badge variant="default">مدير (Admin)</Badge>
                 <p className="text-sm text-muted-foreground">Full access to all features including backup, restore, and schema changes</p>
               </div>

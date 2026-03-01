@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Activity, Database, Clock, AlertTriangle, RefreshCw, Loader2,
-  TrendingUp, TrendingDown, Minus, BarChart3, Zap
+  TrendingUp, BarChart3, Zap, Check, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,6 +16,7 @@ interface PerformanceMetrics {
   database: {
     size: number;
     tableCount: number;
+    viewCount: number;
     indexCount: number;
     pageCount: number;
     pageSize: number;
@@ -30,6 +31,11 @@ interface PerformanceMetrics {
     active: number;
     idle: number;
   };
+  totalTables: number;
+  totalRows: number;
+  totalSize: number;
+  queryCount: number;
+  avgQueryTime: number;
 }
 
 interface SlowQuery {
@@ -51,6 +57,7 @@ interface TableMetrics {
 export function PerformanceMonitor() {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
 
   const fetchMetrics = async () => {
@@ -59,9 +66,12 @@ export function PerformanceMonitor() {
       const result = await response.json();
       if (result.success) {
         setMetrics(result.metrics);
+        setError(null);
+      } else {
+        setError(result.error || 'Failed to fetch metrics');
       }
-    } catch (error) {
-      toast.error('Failed to fetch metrics');
+    } catch (err) {
+      setError(String(err));
     } finally {
       setLoading(false);
     }
@@ -95,7 +105,24 @@ export function PerformanceMonitor() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading performance metrics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-destructive">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-4" />
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchMetrics} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-1" /> Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -107,6 +134,9 @@ export function PerformanceMonitor() {
       </div>
     );
   }
+
+  const slowQueries = metrics.queries?.slowQueries || [];
+  const tableMetrics = metrics.tables || [];
 
   return (
     <ScrollArea className="h-full p-6">
@@ -142,22 +172,33 @@ export function PerformanceMonitor() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatBytes(metrics.database.size)}</div>
+              <div className="text-2xl font-bold">{formatBytes(metrics.database?.size || metrics.totalSize || 0)}</div>
               <p className="text-xs text-muted-foreground">
-                {metrics.database.tableCount} tables, {metrics.database.indexCount} indexes
+                {metrics.database?.tableCount || metrics.totalTables || 0} tables
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Query Time</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Rows</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatTime(metrics.queries.averageTime)}</div>
+              <div className="text-2xl font-bold">{(metrics.totalRows || 0).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Across all tables</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Query Stats</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.queries?.totalExecuted || metrics.queryCount || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {metrics.queries.totalExecuted} queries executed
+                Avg: {formatTime(metrics.queries?.averageTime || metrics.avgQueryTime || 0)}
               </p>
             </CardContent>
           </Card>
@@ -165,31 +206,18 @@ export function PerformanceMonitor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Slow Queries</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <AlertTriangle className={`h-4 w-4 ${slowQueries.length > 0 ? 'text-yellow-500' : 'text-green-500'}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{metrics.queries.slowQueries.length}</div>
+              <div className="text-2xl font-bold">{slowQueries.length}</div>
               <p className="text-xs text-muted-foreground">
                 Queries {'>'} 100ms
               </p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Page Cache</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.database.pageCount.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {formatBytes(metrics.database.pageCount * metrics.database.pageSize)} total
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Slow Queries */}
+        {/* Slow Queries Section */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -200,14 +228,14 @@ export function PerformanceMonitor() {
                 </CardTitle>
                 <CardDescription>Queries that took longer than 100ms to execute</CardDescription>
               </div>
-              <Badge variant="secondary">{metrics.queries.slowQueries.length} queries</Badge>
+              <Badge variant="secondary">{slowQueries.length} queries</Badge>
             </div>
           </CardHeader>
           <CardContent>
-            {metrics.queries.slowQueries.length === 0 ? (
+            {slowQueries.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Zap className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                No slow queries detected!
+                <p>No slow queries detected!</p>
               </div>
             ) : (
               <ScrollArea className="max-h-64">
@@ -221,7 +249,7 @@ export function PerformanceMonitor() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {metrics.queries.slowQueries.map((q, i) => (
+                    {slowQueries.map((q, i) => (
                       <TableRow key={i}>
                         <TableCell className="font-mono text-xs max-w-md truncate">
                           {q.query}
@@ -231,7 +259,7 @@ export function PerformanceMonitor() {
                             {formatTime(q.executionTime)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{q.rowCount.toLocaleString()}</TableCell>
+                        <TableCell>{q.rowCount?.toLocaleString()}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {new Date(q.timestamp).toLocaleString()}
                         </TableCell>
@@ -244,7 +272,7 @@ export function PerformanceMonitor() {
           </CardContent>
         </Card>
 
-        {/* Table Statistics */}
+        {/* Table Statistics Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -254,42 +282,40 @@ export function PerformanceMonitor() {
             <CardDescription>Performance metrics per table</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-80">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Table</TableHead>
-                    <TableHead>Rows</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Indexes</TableHead>
-                    <TableHead>Read/Write</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {metrics.tables.map((table) => (
-                    <TableRow key={table.name}>
-                      <TableCell className="font-mono">{table.name}</TableCell>
-                      <TableCell>{table.rowCount.toLocaleString()}</TableCell>
-                      <TableCell>{formatBytes(table.sizeBytes)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{table.indexCount}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="text-green-600">{table.readCount.toLocaleString()}</span>
-                          <span className="text-muted-foreground">/</span>
-                          <span className="text-blue-600">{table.writeCount.toLocaleString()}</span>
-                        </div>
-                      </TableCell>
+            {tableMetrics.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No table statistics available
+              </div>
+            ) : (
+              <ScrollArea className="max-h-80">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Table</TableHead>
+                      <TableHead>Rows</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Indexes</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                  </TableHeader>
+                  <TableBody>
+                    {tableMetrics.map((table) => (
+                      <TableRow key={table.name}>
+                        <TableCell className="font-mono">{table.name}</TableCell>
+                        <TableCell>{table.rowCount?.toLocaleString()}</TableCell>
+                        <TableCell>{formatBytes(table.sizeBytes || 0)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{table.indexCount || 0}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
 
-        {/* Database Health */}
+        {/* Database Health and Performance Tips - Side by Side */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -299,15 +325,19 @@ export function PerformanceMonitor() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Page Size</span>
-                  <Badge>{formatBytes(metrics.database.pageSize)}</Badge>
+                  <Badge>{formatBytes(metrics.database?.pageSize || 4096)}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Total Pages</span>
-                  <Badge>{metrics.database.pageCount.toLocaleString()}</Badge>
+                  <Badge>{(metrics.database?.pageCount || 0).toLocaleString()}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Index Count</span>
-                  <Badge>{metrics.database.indexCount}</Badge>
+                  <Badge>{metrics.database?.indexCount || 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">View Count</span>
+                  <Badge>{metrics.database?.viewCount || 0}</Badge>
                 </div>
               </div>
             </CardContent>
@@ -319,28 +349,34 @@ export function PerformanceMonitor() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                {metrics.queries.slowQueries.length > 0 && (
+                {slowQueries.length > 0 && (
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
                     <span>Review slow queries for optimization opportunities</span>
                   </li>
                 )}
-                {metrics.tables.filter(t => t.indexCount === 0 && t.rowCount > 1000).length > 0 && (
+                {tableMetrics.filter(t => t.indexCount === 0 && t.rowCount > 1000).length > 0 && (
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
                     <span>Consider adding indexes to large tables without indexes</span>
                   </li>
                 )}
-                {metrics.database.size > 100 * 1024 * 1024 && (
+                {(metrics.database?.size || metrics.totalSize || 0) > 100 * 1024 * 1024 && (
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
                     <span>Database is large. Consider archiving old data</span>
                   </li>
                 )}
-                {metrics.queries.slowQueries.length === 0 && (
+                {slowQueries.length === 0 && (
                   <li className="flex items-start gap-2">
-                    <Activity className="h-4 w-4 text-green-500 mt-0.5" />
+                    <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                     <span>Database performance is optimal!</span>
+                  </li>
+                )}
+                {(metrics.queries?.totalExecuted || metrics.queryCount || 0) === 0 && (
+                  <li className="flex items-start gap-2">
+                    <Activity className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                    <span>Execute some queries to see performance metrics</span>
                   </li>
                 )}
               </ul>

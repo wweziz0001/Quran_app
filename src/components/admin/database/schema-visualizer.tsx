@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ReactFlow,
   Node,
@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  ZoomIn, ZoomOut, Maximize2, Download, RefreshCw, Table2, Key, Link2, Loader2
+  ZoomIn, ZoomOut, Maximize2, Download, RefreshCw, Table2, Key, Link2, Loader2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -66,7 +66,7 @@ function TableNode({ data }: NodeProps) {
       </div>
 
       {/* Columns */}
-      <div className="divide-y">
+      <div className="divide-y max-h-64 overflow-y-auto">
         {columns?.map((col: ColumnInfo, idx: number) => (
           <div
             key={col.name}
@@ -92,10 +92,7 @@ function TableNode({ data }: NodeProps) {
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-muted-foreground">{col.type}</span>
-              {col.nullable && (
-                <span className="text-muted-foreground/50">?</span>
-              )}
+              <span className="text-muted-foreground text-xs">{col.type}</span>
             </div>
 
             {/* Right Handle for outgoing edges */}
@@ -123,28 +120,32 @@ interface SchemaVisualizerProps {
 
 export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) {
   const [tables, setTables] = useState<TableInfo[]>(propTables || []);
-  const [loading, setLoading] = useState(!propTables);
+  const [loading, setLoading] = useState(!propTables || propTables.length === 0);
+  const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // Fetch tables
   const fetchTables = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/admin/db/tables');
       const result = await response.json();
       if (result.success) {
         setTables(result.tables);
+      } else {
+        setError(result.error || 'Failed to fetch tables');
       }
-    } catch (error) {
-      toast.error('Failed to fetch tables');
+    } catch (err) {
+      setError(String(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!propTables) {
+    if (!propTables || propTables.length === 0) {
       fetchTables();
     }
   }, [propTables, fetchTables]);
@@ -188,23 +189,27 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
           
           // Check if edge already exists
           if (!newEdges.find(e => e.id === edgeId)) {
-            newEdges.push({
-              id: edgeId,
-              source: table.name,
-              sourceHandle: `${col.name}-right`,
-              target: col.foreignKey.table,
-              targetHandle: `${col.foreignKey.column}-left`,
-              type: 'smoothstep',
-              animated: true,
-              style: { stroke: '#3b82f6', strokeWidth: 2 },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                color: '#3b82f6',
-              },
-              label: col.name,
-              labelStyle: { fontSize: 10 },
-              labelBgStyle: { fill: '#fff', fillOpacity: 0.9 },
-            });
+            // Find if target table exists
+            const targetTable = tables.find(t => t.name === col.foreignKey?.table);
+            if (targetTable) {
+              newEdges.push({
+                id: edgeId,
+                source: table.name,
+                sourceHandle: `${col.name}-right`,
+                target: col.foreignKey.table,
+                targetHandle: `${col.foreignKey.column}-left`,
+                type: 'smoothstep',
+                animated: true,
+                style: { stroke: '#3b82f6', strokeWidth: 2 },
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  color: '#3b82f6',
+                },
+                label: col.name,
+                labelStyle: { fontSize: 10 },
+                labelBgStyle: { fill: '#fff', fillOpacity: 0.9 },
+              });
+            }
           }
         }
       });
@@ -221,7 +226,6 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
 
   // Auto layout
   const handleAutoLayout = () => {
-    // Simple grid layout
     const cols = Math.ceil(Math.sqrt(nodes.length));
     const nodeWidth = 250;
     const nodeHeight = 200;
@@ -245,7 +249,35 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading schema...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-destructive">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-4" />
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchTables} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-1" /> Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (tables.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center text-muted-foreground">
+          <Table2 className="h-8 w-8 mx-auto mb-4 opacity-50" />
+          <p>No tables found</p>
+        </div>
       </div>
     );
   }
@@ -253,7 +285,7 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="border-b p-2 flex items-center gap-2 bg-card">
+      <div className="border-b p-2 flex items-center gap-2 bg-card shrink-0">
         <Button variant="outline" size="sm" onClick={fetchTables}>
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>
@@ -269,7 +301,7 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
       </div>
 
       {/* React Flow Canvas */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -283,6 +315,7 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
           defaultEdgeOptions={{
             type: 'smoothstep',
           }}
+          proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showZoom showFitView showInteractive />
@@ -290,7 +323,7 @@ export function SchemaVisualizer({ tables: propTables }: SchemaVisualizerProps) 
       </div>
 
       {/* Legend */}
-      <div className="border-t p-2 bg-muted/30 flex items-center gap-4 text-xs">
+      <div className="border-t p-2 bg-muted/30 flex items-center gap-4 text-xs shrink-0">
         <div className="flex items-center gap-1">
           <Key className="h-3 w-3 text-yellow-500" />
           <span>Primary Key</span>

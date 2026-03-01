@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 
-// PUT - Update a record
+// PUT - Update a record (supports single column update)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ table: string; id: string }> }
 ) {
   try {
     const { table, id } = await params;
-    const data = await request.json();
+    const body = await request.json();
 
     // Get model info
     const modelInfo = Prisma.dmmf.datamodel.models.find(
@@ -17,10 +17,43 @@ export async function PUT(
     );
 
     if (!modelInfo) {
-      return NextResponse.json(
-        { success: false, error: 'Table not found' },
-        { status: 404 }
-      );
+      // Try raw SQL for non-Prisma tables
+      const { column, value, primaryKey } = body;
+      
+      if (!primaryKey || !column) {
+        return NextResponse.json(
+          { success: false, error: 'Column and primaryKey are required for raw SQL update' },
+          { status: 400 }
+        );
+      }
+
+      // Use raw SQL
+      const updateValue = value === '' ? null : value;
+      const updateQuery = `UPDATE ${table} SET ${column} = ? WHERE ${primaryKey} = ?`;
+      
+      await db.$executeRawUnsafe(updateQuery, updateValue, id);
+
+      // Log to audit
+      try {
+        await db.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            resourceType: 'table',
+            resourceName: table,
+            resourceId: String(id),
+            query: `UPDATE ${table} SET ${column} = ? WHERE ${primaryKey} = ${id}`,
+            details: JSON.stringify({ column, oldValue: null, newValue: updateValue }),
+            status: 'success',
+          },
+        });
+      } catch {
+        // Audit log failed, but update succeeded
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Row updated successfully',
+      });
     }
 
     const modelName = modelInfo.name;
@@ -35,33 +68,40 @@ export async function PUT(
       );
     }
 
-    // Filter and prepare data
-    const updateData: Record<string, unknown> = {};
-    for (const field of modelInfo.fields) {
-      if (field.name in data && field.kind === 'scalar') {
-        let value = data[field.name];
-        
-        if (value === '' && !field.isRequired) {
-          value = null;
+    // Support single column update
+    let updateData: Record<string, unknown> = {};
+    
+    if (body.column && body.primaryKey) {
+      // Single column update mode
+      updateData[body.column] = body.value === '' ? null : body.value;
+    } else {
+      // Full update mode
+      for (const field of modelInfo.fields) {
+        if (field.name in body && field.kind === 'scalar') {
+          let value = body[field.name];
+          
+          if (value === '' && !field.isRequired) {
+            value = null;
+          }
+          
+          if (field.type === 'DateTime' && value) {
+            value = new Date(value);
+          }
+          
+          if (field.type === 'Boolean' && typeof value === 'string') {
+            value = value === 'true';
+          }
+          
+          if (field.type === 'Int' && typeof value === 'string' && value !== '') {
+            value = parseInt(value);
+          }
+          
+          if (field.type === 'Float' && typeof value === 'string' && value !== '') {
+            value = parseFloat(value);
+          }
+          
+          updateData[field.name] = value;
         }
-        
-        if (field.type === 'DateTime' && value) {
-          value = new Date(value);
-        }
-        
-        if (field.type === 'Boolean' && typeof value === 'string') {
-          value = value === 'true';
-        }
-        
-        if (field.type === 'Int' && typeof value === 'string' && value !== '') {
-          value = parseInt(value);
-        }
-        
-        if (field.type === 'Float' && typeof value === 'string' && value !== '') {
-          value = parseFloat(value);
-        }
-        
-        updateData[field.name] = value;
       }
     }
 
@@ -74,15 +114,31 @@ export async function PUT(
       data: updateData,
     });
 
+    // Log to audit
+    try {
+      await db.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          resourceType: 'table',
+          resourceName: table,
+          resourceId: String(id),
+          details: JSON.stringify({ updatedFields: Object.keys(updateData) }),
+          status: 'success',
+        },
+      });
+    } catch {
+      // Audit log failed, but update succeeded
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'تم تحديث السجل بنجاح',
+      message: 'Row updated successfully',
       data: updated,
     });
   } catch (error) {
     console.error('Error updating record:', error);
     return NextResponse.json(
-      { success: false, error: 'فشل في تحديث السجل: ' + String(error) },
+      { success: false, error: 'Failed to update: ' + String(error) },
       { status: 500 }
     );
   }
@@ -95,6 +151,7 @@ export async function DELETE(
 ) {
   try {
     const { table, id } = await params;
+    const body = await request.json();
 
     // Get model info
     const modelInfo = Prisma.dmmf.datamodel.models.find(
@@ -102,10 +159,40 @@ export async function DELETE(
     );
 
     if (!modelInfo) {
-      return NextResponse.json(
-        { success: false, error: 'Table not found' },
-        { status: 404 }
-      );
+      // Try raw SQL for non-Prisma tables
+      const { primaryKey } = body;
+      
+      if (!primaryKey) {
+        return NextResponse.json(
+          { success: false, error: 'primaryKey is required for raw SQL delete' },
+          { status: 400 }
+        );
+      }
+
+      // Use raw SQL
+      const deleteQuery = `DELETE FROM ${table} WHERE ${primaryKey} = ?`;
+      await db.$executeRawUnsafe(deleteQuery, id);
+
+      // Log to audit
+      try {
+        await db.auditLog.create({
+          data: {
+            action: 'DELETE',
+            resourceType: 'table',
+            resourceName: table,
+            resourceId: String(id),
+            query: `DELETE FROM ${table} WHERE ${primaryKey} = ${id}`,
+            status: 'success',
+          },
+        });
+      } catch {
+        // Audit log failed, but delete succeeded
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Row deleted successfully',
+      });
     }
 
     const modelName = modelInfo.name;
@@ -128,14 +215,29 @@ export async function DELETE(
       where: { [idField.name]: parsedId },
     });
 
+    // Log to audit
+    try {
+      await db.auditLog.create({
+        data: {
+          action: 'DELETE',
+          resourceType: 'table',
+          resourceName: table,
+          resourceId: String(id),
+          status: 'success',
+        },
+      });
+    } catch {
+      // Audit log failed, but delete succeeded
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'تم حذف السجل بنجاح',
+      message: 'Row deleted successfully',
     });
   } catch (error) {
     console.error('Error deleting record:', error);
     return NextResponse.json(
-      { success: false, error: 'فشل في حذف السجل: ' + String(error) },
+      { success: false, error: 'Failed to delete: ' + String(error) },
       { status: 500 }
     );
   }
@@ -155,10 +257,12 @@ export async function GET(
     );
 
     if (!modelInfo) {
-      return NextResponse.json(
-        { success: false, error: 'Table not found' },
-        { status: 404 }
-      );
+      // Try raw SQL
+      const result = await db.$queryRawUnsafe(`SELECT * FROM ${table} LIMIT 1`) as any[];
+      return NextResponse.json({
+        success: true,
+        data: result[0] || null,
+      });
     }
 
     const modelName = modelInfo.name;
@@ -195,7 +299,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching record:', error);
     return NextResponse.json(
-      { success: false, error: 'فشل في جلب السجل: ' + String(error) },
+      { success: false, error: 'Failed to fetch record: ' + String(error) },
       { status: 500 }
     );
   }

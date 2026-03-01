@@ -18,6 +18,32 @@
 
 ---
 
+## [1.3.1] - 2025-01-19
+
+### 🔧 الإصلاحات
+
+#### إصلاح جميع مشاكل مدير قواعد البيانات
+
+**المشاكل التي تم إصلاحها:**
+
+1. **Dashboard**: أزرار Quick Actions + Pagination للجداول
+2. **Tables**: تعديل البيانات + Scroll bar في الفهرس
+3. **Query Editor**: مربع الاستعلام + أزرار التنفيذ
+4. **Schema**: عرض الجداول والعلاقات
+5. **Monitor**: ترتيب المربعات + البيانات الصحيحة
+6. **Audit Logs**: تسجيل جميع الأحداث (UPDATE, DELETE)
+7. **Permissions**: إضافة تعديل الصلاحيات
+
+**الملفات المتأثرة:**
+- `src/components/admin/database/database-manager.tsx`
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/components/admin/database/performance-monitor.tsx`
+- `src/app/api/admin/database/data/[table]/[id]/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.3.1.md`
+
+---
+
 ## [1.3.0] - 2025-01-19
 
 ### ✨ الميزات الجديدة
