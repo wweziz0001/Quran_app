@@ -18,6 +18,36 @@
 
 ---
 
+## [1.5.0] - 2025-01-16
+
+### ✨ الميزات الجديدة - Stage 1: Enterprise Database Schema
+
+#### إضافة 11 جدول جديد
+- **SearchIndex** - فهرس البحث الدلالي (AI-powered search)
+- **WordAnalysis** - تحليل الكلمات صرفياً
+- **Notification** - نظام إشعارات المستخدمين
+- **Analytics** - تحليلات الاستخدام
+- **UserSession** - جلسات المستخدمين
+- **TajweedRule** - قواعد التجويد (7 قواعد)
+- **AudioFile** - ملفات الصوت HLS
+- **Collection/CollectionItem** - مجموعات المستخدم
+- **APILog** - سجل طلبات API
+- **FeatureFlag** - ميزات التطبيق (5 ميزات)
+
+#### تحديثات النماذج
+- Soft Delete لـ 6 نماذج (Ayah, Reciter, Recitation, User, TafsirEntry, TranslationEntry)
+- Slug للسور (114 slug)
+- علاقات جديدة بين الجداول
+
+#### الملفات الجديدة
+- `prisma/seed.ts` - بيانات أولية
+- `src/types/database.ts` - TypeScript types
+- 3 API endpoints جديدة
+
+**التفاصيل:** انظر `changelog/v1.5.0.md`
+
+---
+
 ## [1.4.1] - 2025-01-16
 
 ### 🔧 الإصلاحات
