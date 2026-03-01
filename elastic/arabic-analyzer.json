@@ -1,0 +1,101 @@
+{
+  "analyzer": {
+    "arabic_analyzer": {
+      "type": "custom",
+      "char_filter": ["arabic_normalizer", "diacritics_remover"],
+      "tokenizer": "standard",
+      "filter": [
+        "lowercase",
+        "decimal_digit",
+        "arabic_stop",
+        "arabic_normalization",
+        "arabic_stemmer",
+        "arabic_synonyms"
+      ]
+    },
+    "arabic_search_analyzer": {
+      "type": "custom",
+      "char_filter": ["arabic_normalizer", "diacritics_remover"],
+      "tokenizer": "standard",
+      "filter": [
+        "lowercase",
+        "decimal_digit",
+        "arabic_stop",
+        "arabic_normalization",
+        "arabic_stemmer",
+        "arabic_synonyms_graph"
+      ]
+    },
+    "arabic_exact_analyzer": {
+      "type": "custom",
+      "char_filter": ["diacritics_remover"],
+      "tokenizer": "standard",
+      "filter": ["lowercase"]
+    },
+    "autocomplete_analyzer": {
+      "type": "custom",
+      "tokenizer": "edge_ngram_tokenizer",
+      "filter": ["lowercase", "arabic_normalization"]
+    },
+    "autocomplete_search_analyzer": {
+      "type": "custom",
+      "tokenizer": "standard",
+      "filter": ["lowercase", "arabic_normalization"]
+    }
+  },
+  "char_filter": {
+    "arabic_normalizer": {
+      "type": "mapping",
+      "mappings": [
+        "أ => ا",
+        "إ => ا",
+        "آ => ا",
+        "ٱ => ا",
+        "ى => ي",
+        "ة => ه",
+        "ۀ => ه"
+      ]
+    },
+    "diacritics_remover": {
+      "type": "mapping",
+      "mappings": [
+        "َ=>",
+        "ُ=>",
+        "ِ=>",
+        "ً=>",
+        "ٌ=>",
+        "ٍ=>",
+        "ّ=>",
+        "ْ=>",
+        "ٰ=>",
+        "ۡ=>"
+      ]
+    }
+  },
+  "filter": {
+    "arabic_stop": {
+      "type": "stop",
+      "stopwords_path": "stopwords_ar.txt"
+    },
+    "arabic_stemmer": {
+      "type": "stemmer",
+      "language": "arabic"
+    },
+    "arabic_synonyms": {
+      "type": "synonym",
+      "synonyms_path": "synonyms.txt"
+    },
+    "arabic_synonyms_graph": {
+      "type": "synonym_graph",
+      "synonyms_path": "synonyms.txt"
+    }
+  },
+  "tokenizer": {
+    "edge_ngram_tokenizer": {
+      "type": "edge_ngram",
+      "min_gram": 2,
+      "max_gram": 10,
+      "token_chars": ["letter"]
+    }
+  }
+}

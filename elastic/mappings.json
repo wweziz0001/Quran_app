@@ -1,0 +1,118 @@
+{
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "surahId": {
+      "type": "integer"
+    },
+    "surahName": {
+      "type": "keyword"
+    },
+    "surahNameArabic": {
+      "type": "text",
+      "analyzer": "arabic_analyzer",
+      "search_analyzer": "arabic_search_analyzer",
+      "fields": {
+        "keyword": { "type": "keyword" },
+        "normalized": {
+          "type": "text",
+          "analyzer": "arabic_exact_analyzer"
+        }
+      }
+    },
+    "ayahNumber": {
+      "type": "integer"
+    },
+    "ayahNumberGlobal": {
+      "type": "integer"
+    },
+    "textArabic": {
+      "type": "text",
+      "analyzer": "arabic_analyzer",
+      "search_analyzer": "arabic_search_analyzer",
+      "term_vector": "with_positions_offsets",
+      "fields": {
+        "exact": {
+          "type": "text",
+          "analyzer": "arabic_exact_analyzer"
+        },
+        "normalized": {
+          "type": "text",
+          "analyzer": "arabic_normalizer"
+        },
+        "autocomplete": {
+          "type": "text",
+          "analyzer": "autocomplete_analyzer",
+          "search_analyzer": "autocomplete_search_analyzer"
+        },
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "textUthmani": {
+      "type": "text",
+      "analyzer": "arabic_exact_analyzer",
+      "fields": {
+        "normalized": {
+          "type": "text",
+          "analyzer": "arabic_analyzer"
+        }
+      }
+    },
+    "textIndopak": {
+      "type": "text",
+      "analyzer": "arabic_analyzer"
+    },
+    "pageNumber": {
+      "type": "integer"
+    },
+    "juzNumber": {
+      "type": "integer"
+    },
+    "hizbNumber": {
+      "type": "integer"
+    },
+    "sajdah": {
+      "type": "boolean"
+    },
+    "words": {
+      "type": "text",
+      "analyzer": "arabic_analyzer"
+    },
+    "roots": {
+      "type": "keyword"
+    },
+    "topics": {
+      "type": "keyword"
+    },
+    "embedding": {
+      "type": "dense_vector",
+      "dims": 1536,
+      "index": true,
+      "similarity": "cosine"
+    },
+    "translation": {
+      "type": "text",
+      "analyzer": "english"
+    },
+    "translationSource": {
+      "type": "keyword"
+    },
+    "tafsirText": {
+      "type": "text",
+      "analyzer": "arabic_analyzer"
+    },
+    "tafsirSource": {
+      "type": "keyword"
+    },
+    "createdAt": {
+      "type": "date"
+    },
+    "updatedAt": {
+      "type": "date"
+    }
+  }
+}
