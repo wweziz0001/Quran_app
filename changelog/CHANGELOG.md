@@ -18,6 +18,23 @@
 
 ---
 
+## [1.5.1] - 2025-01-16
+
+### ✨ الميزات الجديدة - استكمال Stage 1
+
+#### إكمال الملفات الناقصة لـ Stage 1
+
+بعد إضافة الجداول الجديدة في v1.5.0، تم إنشاء الملفات الناقصة:
+
+**الملفات الجديدة:**
+- `prisma/seed.ts` - بيانات أولية (7 قواعد تجويد + 5 ميزات + 6 إعدادات + 114 slug)
+- `src/types/database.ts` - أنواع TypeScript للجداول الجديدة
+- 5 API endpoints جديدة (search-index, notifications, analytics, feature-flags, tajweed-rules)
+
+**التفاصيل:** انظر `changelog/v1.5.1.md`
+
+---
+
 ## [1.5.0] - 2025-01-16
 
 ### ✨ الميزات الجديدة - Stage 1: Enterprise Database Schema

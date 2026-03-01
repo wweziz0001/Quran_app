@@ -1,5 +1,5 @@
 // src/types/database.ts
-// TypeScript types for Enterprise Stage 1 models
+// TypeScript types for Enterprise Stage 1 tables
 
 // ==================== Search ====================
 export interface SearchIndex {
@@ -24,12 +24,23 @@ export interface WordAnalysis {
   wordNormalized?: string;
   root?: string;
   lemma?: string;
-  pos?: 'noun' | 'verb' | 'particle' | 'preposition' | 'conjunction' | 'pronoun' | 'adjective' | 'adverb' | 'other';
+  pos?: PartOfSpeech;
   morphology?: MorphologyData;
   meaning?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type PartOfSpeech =
+  | 'noun'
+  | 'verb'
+  | 'particle'
+  | 'preposition'
+  | 'conjunction'
+  | 'pronoun'
+  | 'adjective'
+  | 'adverb'
+  | 'other';
 
 export interface MorphologyData {
   gender?: 'masculine' | 'feminine';
@@ -92,12 +103,13 @@ export interface Analytics {
 
 // ==================== Audio ====================
 export type AudioStatus = 'pending' | 'processing' | 'ready' | 'error';
+export type AudioFormat = 'mp3' | 'ogg' | 'wav';
 
 export interface AudioFile {
   id: string;
   recitationId: string;
   ayahId: number;
-  format: 'mp3' | 'ogg' | 'wav';
+  format: AudioFormat;
   hlsPlaylistUrl?: string;
   hlsSegmentsUrl?: string;
   fileSize?: number;
@@ -180,10 +192,12 @@ export interface FeatureFlagCondition {
 }
 
 // ==================== API Log ====================
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
 export interface APILog {
   id: string;
   endpoint: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  method: HttpMethod;
   userId?: string;
   ipAddress?: string;
   userAgent?: string;
@@ -215,3 +229,50 @@ export interface DeviceInfo {
   browser: string;
   browserVersion: string;
 }
+
+// ==================== API Response Types ====================
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+// ==================== Helper Types ====================
+export type CreateInput<T> = Omit<T, 'id' | 'createdAt' | 'updatedAt'>;
+export type UpdateInput<T> = Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>;
+
+// Feature flag keys enum for type safety
+export const FEATURE_FLAG_KEYS = {
+  SEMANTIC_SEARCH: 'semantic_search',
+  AUDIO_HLS: 'audio_hls',
+  OFFLINE_MODE: 'offline_mode',
+  DARK_MODE: 'dark_mode',
+  WORD_ANALYSIS: 'word_analysis',
+} as const;
+
+export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[keyof typeof FEATURE_FLAG_KEYS];
+
+// Tajweed rule codes enum for type safety
+export const TAJWEED_CODES = {
+  IDGHAM: 'IDGHAM',
+  IZHAR: 'IZHAR',
+  IQLAB: 'IQLAB',
+  IKHFA: 'IKHFA',
+  GHUNNAH: 'GHUNNAH',
+  MADD: 'MADD',
+  QALQALAH: 'QALQALAH',
+} as const;
+
+export type TajweedCode = (typeof TAJWEED_CODES)[keyof typeof TAJWEED_CODES];

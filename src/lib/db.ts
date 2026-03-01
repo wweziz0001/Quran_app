@@ -4,6 +4,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Force new client on reload for development
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = undefined
+}
+
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
