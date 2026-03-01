@@ -18,6 +18,56 @@
 
 ---
 
+## [1.3.0] - 2025-01-19
+
+### ✨ الميزات الجديدة
+
+#### نظام إدارة قواعد البيانات المتكامل (Enterprise-Grade Database Management)
+
+**الميزات المضافة:**
+1. **Monaco SQL Editor** - محرر SQL متقدم مع:
+   - Syntax Highlighting
+   - Autocomplete للجداول والأعمدة
+   - Multiple Tabs
+   - Query History & Saved Queries
+   - اختصارات لوحة المفاتيح
+
+2. **Schema Visualizer** - تصور هيكل قاعدة البيانات:
+   - ER Diagram تفاعلي
+   - عرض العلاقات بين الجداول
+   - Zoom & Pan
+
+3. **Data Editor** - محرر البيانات مع:
+   - Inline Editing
+   - CRUD Operations
+   - Bulk Delete
+   - Pagination
+
+4. **Permissions System** - نظام الصلاحيات:
+   - ثلاثة أدوار: Viewer, Editor, Admin
+   - صلاحيات دقيقة لكل عملية
+
+5. **Performance Monitor** - مراقبة الأداء:
+   - Slow Queries Detection
+   - Table Statistics
+   - Database Health
+
+**الملفات الجديدة:**
+- `src/components/admin/database/sql-editor.tsx`
+- `src/components/admin/database/schema-visualizer.tsx`
+- `src/components/admin/database/data-editor.tsx`
+- `src/components/admin/database/performance-monitor.tsx`
+- `src/lib/db-permissions.ts`
+
+**الملفات المحدثة:**
+- `src/components/admin/database/database-manager.tsx`
+- `src/app/api/admin/db/metrics/route.ts`
+- `src/app/api/admin/database/data/[table]/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.3.0.md`
+
+---
+
 ## [1.2.7] - 2026-02-28
 
 ### 📝 التوثيق

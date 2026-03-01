@@ -7,21 +7,32 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   Database, Table2, Code, Upload, Download, Save, Clock, BarChart3, FileJson,
   Play, Plus, Search, MoreHorizontal, Trash2, Edit, Copy, Check, AlertTriangle,
-  RefreshCw, Eye, X, Loader2, ChevronLeft, ChevronRight, Star,
+  RefreshCw, X, Loader2, ChevronLeft, ChevronRight, Star, Shield, Settings,
+  Network, Activity, Key
 } from 'lucide-react';
 import { useDatabaseStore } from '@/stores/database-store';
+import { SQLEditor } from './sql-editor';
+import { SchemaVisualizer } from './schema-visualizer';
+import { DataEditor } from './data-editor';
+import { PerformanceMonitor } from './performance-monitor';
+import {
+  ROLE_PERMISSIONS, getPermissions, getRoleDisplayName, getPermissionDisplayName,
+  PERMISSION_CATEGORIES, CATEGORY_NAMES, type UserRole
+} from '@/lib/db-permissions';
 
 // ==================== Main Database Manager Component ====================
 export function DatabaseManager() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [userRole, setUserRole] = useState<UserRole>('admin');
   const { actions, tables, connectionStatus, isLoadingTables, metrics } = useDatabaseStore();
 
   useEffect(() => {
@@ -39,10 +50,31 @@ export function DatabaseManager() {
             <Database className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-2xl font-bold">Database Management</h1>
-              <p className="text-sm text-muted-foreground">Manage your database with advanced tools</p>
+              <p className="text-sm text-muted-foreground">Enterprise-grade database administration</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Role Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Shield className="h-4 w-4 mr-1" />
+                  {getRoleDisplayName(userRole)}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setUserRole('viewer')}>
+                  {getRoleDisplayName('viewer')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setUserRole('editor')}>
+                  {getRoleDisplayName('editor')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setUserRole('admin')}>
+                  {getRoleDisplayName('admin')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'} className="gap-1">
               {connectionStatus === 'connected' ? <><Check className="h-3 w-3" /> Connected</> : <><X className="h-3 w-3" /> Disconnected</>}
             </Badge>
@@ -55,24 +87,30 @@ export function DatabaseManager() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="border-b px-6">
+        <div className="border-b px-6 overflow-x-auto">
           <TabsList className="h-12">
             <TabsTrigger value="dashboard" className="gap-2"><BarChart3 className="h-4 w-4" /> Dashboard</TabsTrigger>
             <TabsTrigger value="tables" className="gap-2"><Table2 className="h-4 w-4" /> Tables</TabsTrigger>
             <TabsTrigger value="query" className="gap-2"><Code className="h-4 w-4" /> Query Editor</TabsTrigger>
+            <TabsTrigger value="schema" className="gap-2"><Network className="h-4 w-4" /> Schema</TabsTrigger>
             <TabsTrigger value="import-export" className="gap-2"><Download className="h-4 w-4" /> Import/Export</TabsTrigger>
             <TabsTrigger value="backup" className="gap-2"><Save className="h-4 w-4" /> Backup</TabsTrigger>
+            <TabsTrigger value="monitor" className="gap-2"><Activity className="h-4 w-4" /> Monitor</TabsTrigger>
             <TabsTrigger value="audit" className="gap-2"><Clock className="h-4 w-4" /> Audit Logs</TabsTrigger>
+            <TabsTrigger value="permissions" className="gap-2"><Key className="h-4 w-4" /> Permissions</TabsTrigger>
           </TabsList>
         </div>
 
         <div className="flex-1 overflow-hidden">
           <TabsContent value="dashboard" className="h-full m-0"><DashboardTab metrics={metrics} tables={tables} /></TabsContent>
-          <TabsContent value="tables" className="h-full m-0"><TablesTab tables={tables} isLoading={isLoadingTables} /></TabsContent>
-          <TabsContent value="query" className="h-full m-0"><QueryEditorTab /></TabsContent>
+          <TabsContent value="tables" className="h-full m-0"><TablesTab tables={tables} isLoading={isLoadingTables} userRole={userRole} /></TabsContent>
+          <TabsContent value="query" className="h-full m-0"><SQLEditor /></TabsContent>
+          <TabsContent value="schema" className="h-full m-0"><SchemaVisualizer tables={tables} /></TabsContent>
           <TabsContent value="import-export" className="h-full m-0"><ImportExportTab tables={tables} /></TabsContent>
           <TabsContent value="backup" className="h-full m-0"><BackupTab /></TabsContent>
+          <TabsContent value="monitor" className="h-full m-0"><PerformanceMonitor /></TabsContent>
           <TabsContent value="audit" className="h-full m-0"><AuditLogsTab /></TabsContent>
+          <TabsContent value="permissions" className="h-full m-0"><PermissionsTab userRole={userRole} /></TabsContent>
         </div>
       </Tabs>
     </div>
@@ -127,46 +165,67 @@ function DashboardTab({ metrics, tables }: { metrics: any; tables: any[] }) {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader><CardTitle>Tables Overview</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Rows</TableHead>
-                  <TableHead>Size</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tables.slice(0, 10).map((table) => (
-                  <TableRow key={table.name}>
-                    <TableCell className="font-mono">{table.name}</TableCell>
-                    <TableCell><Badge variant={table.type === 'table' ? 'default' : 'secondary'}>{table.type}</Badge></TableCell>
-                    <TableCell>{table.rowCount?.toLocaleString()}</TableCell>
-                    <TableCell>{table.sizeBytes ? (table.sizeBytes / 1024).toFixed(2) : 0} KB</TableCell>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle>Tables Overview</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Rows</TableHead>
+                    <TableHead>Size</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {tables.slice(0, 10).map((table) => (
+                    <TableRow key={table.name}>
+                      <TableCell className="font-mono">{table.name}</TableCell>
+                      <TableCell><Badge variant={table.type === 'table' ? 'default' : 'secondary'}>{table.type}</Badge></TableCell>
+                      <TableCell>{table.rowCount?.toLocaleString()}</TableCell>
+                      <TableCell>{table.sizeBytes ? (table.sizeBytes / 1024).toFixed(2) : 0} KB</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <Button className="w-full justify-start" variant="outline">
+                <Code className="h-4 w-4 mr-2" /> New Query
+              </Button>
+              <Button className="w-full justify-start" variant="outline">
+                <Upload className="h-4 w-4 mr-2" /> Import Data
+              </Button>
+              <Button className="w-full justify-start" variant="outline">
+                <Download className="h-4 w-4 mr-2" /> Export Data
+              </Button>
+              <Button className="w-full justify-start" variant="outline">
+                <Save className="h-4 w-4 mr-2" /> Create Backup
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </ScrollArea>
   );
 }
 
 // ==================== Tables Tab ====================
-function TablesTab({ tables, isLoading }: { tables: any[]; isLoading: boolean }) {
+function TablesTab({ tables, isLoading, userRole }: { tables: any[]; isLoading: boolean; userRole: UserRole }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [tableData, setTableData] = useState<any>({ data: [], columns: [], loading: false });
+  const [viewMode, setViewMode] = useState<'browse' | 'edit'>('browse');
 
   const filteredTables = tables.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const permissions = getPermissions(userRole);
 
   useEffect(() => {
-    // Fetch table data when selected table changes
     const loadTableData = async () => {
       if (!selectedTable) return;
       setTableData(prev => ({ ...prev, loading: true }));
@@ -174,7 +233,6 @@ function TablesTab({ tables, isLoading }: { tables: any[]; isLoading: boolean })
         const response = await fetch(`/api/admin/database/data/${selectedTable.name}?limit=50`);
         const result = await response.json();
         if (result.success) {
-          // API returns 'fields', we use it as 'columns'
           const columns = result.fields || result.columns || [];
           setTableData({ data: result.data || [], columns, loading: false });
         } else {
@@ -215,80 +273,51 @@ function TablesTab({ tables, isLoading }: { tables: any[]; isLoading: boolean })
       <div className="flex-1 flex flex-col">
         {selectedTable ? (
           <>
-            <div className="border-b p-4"><h2 className="text-lg font-semibold font-mono">{selectedTable.name}</h2><p className="text-sm text-muted-foreground">{selectedTable.rowCount?.toLocaleString()} rows • {selectedTable.columns?.length} columns</p></div>
-            <ScrollArea className="flex-1">
-              {tableData.loading ? (
-                <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-              ) : tableData.data.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <div className="text-center"><Table2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No data found</p></div>
-                </div>
-              ) : (
-                <div className="p-4">
-                  <Table>
-                    <TableHeader><TableRow>{(tableData.columns || []).map((col: any) => (<TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>))}</TableRow></TableHeader>
-                    <TableBody>
-                      {(tableData.data || []).map((row: any, i: number) => (
-                        <TableRow key={i}>{(tableData.columns || []).map((col: any) => (<TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">{String(row[col.name] ?? 'NULL')}</TableCell>))}</TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </ScrollArea>
+            <div className="border-b p-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold font-mono">{selectedTable.name}</h2>
+                <p className="text-sm text-muted-foreground">{selectedTable.rowCount?.toLocaleString()} rows • {selectedTable.columns?.length} columns</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant={viewMode === 'browse' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('browse')}>
+                  Browse
+                </Button>
+                {permissions.canUpdateData && (
+                  <Button variant={viewMode === 'edit' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('edit')}>
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+            {viewMode === 'edit' && permissions.canUpdateData ? (
+              <DataEditor tableName={selectedTable.name} columns={selectedTable.columns || []} />
+            ) : (
+              <ScrollArea className="flex-1">
+                {tableData.loading ? (
+                  <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                ) : tableData.data.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center"><Table2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No data found</p></div>
+                  </div>
+                ) : (
+                  <div className="p-4">
+                    <Table>
+                      <TableHeader><TableRow>{(tableData.columns || []).map((col: any) => (<TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>))}</TableRow></TableHeader>
+                      <TableBody>
+                        {(tableData.data || []).map((row: any, i: number) => (
+                          <TableRow key={i}>{(tableData.columns || []).map((col: any) => (<TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">{String(row[col.name] ?? 'NULL')}</TableCell>))}</TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </ScrollArea>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground"><div className="text-center"><Table2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>Select a table to view its data</p></div></div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ==================== Query Editor Tab ====================
-function QueryEditorTab() {
-  const [query, setQuery] = useState('SELECT * FROM Surah LIMIT 10;');
-  const [result, setResult] = useState<any>(null);
-  const [executing, setExecuting] = useState(false);
-
-  const executeQuery = async () => {
-    setExecuting(true);
-    try {
-      const response = await fetch('/api/admin/db/query', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
-      const data = await response.json();
-      setResult(data);
-    } catch { toast.error('Query execution failed'); }
-    finally { setExecuting(false); }
-  };
-
-  return (
-    <div className="h-full flex flex-col">
-      <div className="border-b p-4">
-        <Textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enter SQL query..." className="font-mono min-h-[150px] resize-none" />
-        <div className="mt-4 flex gap-2">
-          <Button onClick={executeQuery} disabled={executing}>{executing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}Execute</Button>
-          <Button variant="outline"><Save className="h-4 w-4 mr-2" />Save Query</Button>
-        </div>
-      </div>
-      <ScrollArea className="flex-1">
-        {result ? (
-          <div className="p-4">
-            {result.success ? (
-              <>
-                <div className="text-sm text-muted-foreground mb-4">{result.rowCount} rows • {result.executionTime?.toFixed(2)}ms</div>
-                <Table>
-                  <TableHeader><TableRow className="bg-muted/50">{result.columns?.map((col: any) => (<TableHead key={col.name} className="font-mono whitespace-nowrap">{col.name}</TableHead>))}</TableRow></TableHeader>
-                  <TableBody>
-                    {result.data?.slice(0, 100).map((row: any, i: number) => (
-                      <TableRow key={i}>{result.columns?.map((col: any) => (<TableCell key={col.name} className="font-mono text-sm max-w-xs truncate">{String(row[col.name] ?? 'NULL')}</TableCell>))}</TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </>
-            ) : (<div className="text-destructive"><AlertTriangle className="h-4 w-4 inline mr-2" />{result.error}</div>)}
-          </div>
-        ) : (<div className="h-full flex items-center justify-center text-muted-foreground"><div className="text-center"><Code className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>Execute a query to see results</p></div></div>)}
-      </ScrollArea>
     </div>
   );
 }
@@ -337,7 +366,6 @@ function ImportExportTab({ tables }: { tables: any[] }) {
           filename = `${exportTable}.csv`;
           mimeType = 'text/csv';
         } else {
-          // SQL format
           const inserts = result.data.map((row: any) => {
             const cols = Object.keys(row).join(', ');
             const vals = Object.values(row).map(v =>
@@ -372,7 +400,7 @@ function ImportExportTab({ tables }: { tables: any[] }) {
           <CardHeader><CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Import Data</CardTitle><CardDescription>Import data from JSON</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             <div><Label>Target Table</Label><select className="w-full mt-1 p-2 border rounded" value={importTable} onChange={(e) => setImportTable(e.target.value)}><option value="">Select table...</option>{tables.map((t) => (<option key={t.name} value={t.name}>{t.name}</option>))}</select></div>
-            <div><Label>Data (JSON Array)</Label><Textarea value={importData} onChange={(e) => setImportData(e.target.value)} placeholder='[{"column": "value", ...}]' className="font-mono min-h-[200px]" /></div>
+            <div><Label>Data (JSON Array)</Label><textarea className="w-full mt-1 p-2 border rounded font-mono min-h-[200px]" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder='[{"column": "value", ...}]' /></div>
             <Button onClick={handleImport} disabled={processing} className="w-full">{processing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Import</Button>
           </CardContent>
         </Card>
@@ -409,6 +437,16 @@ function BackupTab() {
     } catch { toast.error('Backup failed'); }
   };
 
+  const restoreBackup = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to restore backup "${name}"? This will replace the current database.`)) return;
+    try {
+      const response = await fetch(`/api/admin/db/backup/${id}/restore`, { method: 'POST' });
+      const result = await response.json();
+      if (result.success) { toast.success('Backup restored successfully'); }
+      else { toast.error(result.error || 'Restore failed'); }
+    } catch { toast.error('Restore failed'); }
+  };
+
   return (
     <ScrollArea className="h-full p-6">
       <div className="space-y-6">
@@ -426,7 +464,7 @@ function BackupTab() {
           <CardContent>
             {loading ? <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Size</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Size</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {backups.map((backup) => (
                     <TableRow key={backup.id}>
@@ -435,6 +473,11 @@ function BackupTab() {
                       <TableCell>{(backup.size / 1024).toFixed(2)} KB</TableCell>
                       <TableCell><Badge variant={backup.status === 'completed' ? 'default' : 'destructive'}>{backup.status}</Badge></TableCell>
                       <TableCell>{new Date(backup.createdAt).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => restoreBackup(backup.id, backup.name)}>
+                          Restore
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -478,6 +521,77 @@ function AuditLogsTab() {
         )}
       </ScrollArea>
     </div>
+  );
+}
+
+// ==================== Permissions Tab ====================
+function PermissionsTab({ userRole }: { userRole: UserRole }) {
+  const permissions = getPermissions(userRole);
+
+  return (
+    <ScrollArea className="h-full p-6">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Current Role: {getRoleDisplayName(userRole)}
+            </CardTitle>
+            <CardDescription>
+              Permissions for the {getRoleDisplayName(userRole)} role
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => (
+                <div key={category}>
+                  <h3 className="font-semibold mb-3 text-lg">{CATEGORY_NAMES[category as keyof typeof CATEGORY_NAMES]}</h3>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {perms.map((perm) => (
+                      <div
+                        key={perm}
+                        className={`flex items-center justify-between p-3 rounded-lg border ${
+                          permissions[perm] ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
+                        }`}
+                      >
+                        <span className="text-sm">{getPermissionDisplayName(perm)}</span>
+                        {permissions[perm] ? (
+                          <Check className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <X className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Role Descriptions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Badge>مشاهد (Viewer)</Badge>
+                <p className="text-sm text-muted-foreground">Can view tables and data, execute SELECT queries only</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Badge variant="secondary">محرر (Editor)</Badge>
+                <p className="text-sm text-muted-foreground">Can view, insert, update, delete data, import/export, and view audit logs</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Badge variant="default">مدير (Admin)</Badge>
+                <p className="text-sm text-muted-foreground">Full access to all features including backup, restore, and schema changes</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </ScrollArea>
   );
 }
 
