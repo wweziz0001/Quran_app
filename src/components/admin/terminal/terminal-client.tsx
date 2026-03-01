@@ -39,6 +39,35 @@ interface CommandHistoryItem {
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
 }
 
+// Risk patterns for command analysis
+const RISK_PATTERNS = [
+  { pattern: /rm\s+(-[rf]+\s+)*\//, level: 'critical', message: 'Root filesystem deletion attempt' },
+  { pattern: /rm\s+(-[rf]+\s+)*\*/, level: 'critical', message: 'Wildcard deletion detected' },
+  { pattern: /rm\s+-rf/, level: 'high', message: 'Force recursive deletion' },
+  { pattern: /sudo\s+/, level: 'high', message: 'Elevated privileges requested' },
+  { pattern: /chmod\s+777/, level: 'medium', message: 'Insecure permissions (777)' },
+  { pattern: />\s*\//, level: 'high', message: 'Root filesystem write' },
+  { pattern: /mkfs/, level: 'critical', message: 'Filesystem format command' },
+  { pattern: /dd\s+if=/, level: 'high', message: 'Disk operation command' },
+];
+
+function analyzeCommand(cmd: string): AIAnalysis {
+  for (const { pattern, level, message } of RISK_PATTERNS) {
+    if (pattern.test(cmd)) {
+      return {
+        riskLevel: level as AIAnalysis['riskLevel'],
+        explanation: message,
+        shouldConfirm: level === 'critical' || level === 'high'
+      };
+    }
+  }
+  return {
+    riskLevel: 'low',
+    explanation: 'Command appears safe',
+    shouldConfirm: false
+  };
+}
+
 export function TerminalClient({
   tabId,
   sessionId: existingSessionId,
@@ -65,221 +94,221 @@ export function TerminalClient({
   const [history, setHistory] = useState<CommandHistoryItem[]>([]);
   const [currentCwd, setCurrentCwd] = useState(cwd || '~');
   const [error, setError] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // Risk patterns for command analysis
-  const RISK_PATTERNS = [
-    { pattern: /rm\s+(-[rf]+\s+)*\//, level: 'critical', message: 'Root filesystem deletion attempt' },
-    { pattern: /rm\s+(-[rf]+\s+)*\*/, level: 'critical', message: 'Wildcard deletion detected' },
-    { pattern: /rm\s+-rf/, level: 'high', message: 'Force recursive deletion' },
-    { pattern: /sudo\s+/, level: 'high', message: 'Elevated privileges requested' },
-    { pattern: /chmod\s+777/, level: 'medium', message: 'Insecure permissions (777)' },
-    { pattern: />\s*\//, level: 'high', message: 'Root filesystem write' },
-    { pattern: /mkfs/, level: 'critical', message: 'Filesystem format command' },
-    { pattern: /dd\s+if=/, level: 'high', message: 'Disk operation command' },
-  ];
-
-  // Analyze command for risks
-  const analyzeCommand = useCallback((cmd: string): AIAnalysis => {
-    for (const { pattern, level, message } of RISK_PATTERNS) {
-      if (pattern.test(cmd)) {
-        return {
-          riskLevel: level as AIAnalysis['riskLevel'],
-          explanation: message,
-          shouldConfirm: level === 'critical' || level === 'high'
-        };
-      }
-    }
-    return {
-      riskLevel: 'low',
-      explanation: 'Command appears safe',
-      shouldConfirm: false
-    };
-  }, []);
-
-  // Initialize terminal
+  // Initialize terminal when component mounts
   useEffect(() => {
-    if (!terminalRef.current) return;
+    const container = terminalRef.current;
+    if (!container) return;
 
     let mounted = true;
 
-    // Initialize xterm
-    const xterm = new Terminal({
-      theme: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#58a6ff',
-        cursorAccent: '#0d1117',
-        selectionBackground: '#264f78',
-        black: '#484f58',
-        red: '#f97583',
-        green: '#85e89d',
-        yellow: '#ffea7f',
-        blue: '#79b8ff',
-        magenta: '#b392f0',
-        cyan: '#56d4dd',
-        white: '#e1e4e8',
-        brightBlack: '#6a737d',
-        brightRed: '#f97583',
-        brightGreen: '#85e89d',
-        brightYellow: '#ffea7f',
-        brightBlue: '#79b8ff',
-        brightMagenta: '#b392f0',
-        brightCyan: '#56d4dd',
-        brightWhite: '#fafbfc'
-      },
-      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace',
-      fontSize: 14,
-      lineHeight: 1.2,
-      cursorBlink: true,
-      cursorStyle: 'bar',
-      scrollback: 5000,
-      allowTransparency: true
-    });
-
-    const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
-    const searchAddon = new SearchAddon();
-
-    xterm.loadAddon(fitAddon);
-    xterm.loadAddon(webLinksAddon);
-    xterm.loadAddon(searchAddon);
-
-    xterm.open(terminalRef.current);
-    fitAddon.fit();
-
-    xtermRef.current = xterm;
-    fitAddonRef.current = fitAddon;
-
-    // Welcome message
-    xterm.writeln('\x1b[36m╔════════════════════════════════════════════════════════════╗\x1b[0m');
-    xterm.writeln('\x1b[36m║\x1b[0m  \x1b[1;34mAI-Powered Terminal\x1b[0m                                \x1b[36m║\x1b[0m');
-    xterm.writeln('\x1b[36m║\x1b[0m  \x1b[90mCreating session...\x1b[0m                                    \x1b[36m║\x1b[0m');
-    xterm.writeln('\x1b[36m╚════════════════════════════════════════════════════════════╝\x1b[0m');
-    xterm.writeln('');
-
-    // Create session
-    const createSession = async () => {
-      try {
-        const response = await fetch('/api/terminal?action=create');
-        const data = await response.json();
-        
-        if (!mounted) return;
-
-        if (data.success && data.sessionId) {
-          sessionIdRef.current = data.sessionId;
-          setSessionId(data.sessionId);
-          setIsConnected(true);
-          setIsConnecting(false);
-          setCurrentCwd(data.cwd || '~');
-          onSessionCreated?.(data.sessionId);
-
-          xterm.writeln('\x1b[32m✓ Terminal session created\x1b[0m');
-          xterm.writeln(`\x1b[36m  Session: ${data.sessionId.slice(0, 8)}...\x1b[0m`);
-          xterm.writeln(`\x1b[36m  Working directory: ${data.cwd || '~'}\x1b[0m`);
-          xterm.writeln('');
-          xterm.write('\x1b[1;32m➜\x1b[0m \x1b[1;34m~\x1b[0m $ ');
-
-          // Start SSE connection for output
-          const eventSource = new EventSource(`/api/terminal?action=output&sessionId=${data.sessionId}`);
-          eventSourceRef.current = eventSource;
-
-          eventSource.onmessage = (event) => {
-            try {
-              const parsed = JSON.parse(event.data);
-              if (parsed.output) {
-                xterm.write(parsed.output);
-              }
-            } catch (e) {
-              // Ignore parse errors
-            }
-          };
-
-          eventSource.onerror = () => {
-            // Reconnect logic could go here
-          };
-
-        } else {
-          throw new Error(data.error || 'Failed to create session');
-        }
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(err.message);
-        setIsConnecting(false);
-        setIsConnected(false);
-        xterm.writeln(`\x1b[31m✗ Error: ${err.message}\x1b[0m`);
+    // Wait for container to have proper dimensions
+    const checkAndInit = () => {
+      if (!mounted) return;
+      
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        requestAnimationFrame(checkAndInit);
+        return;
       }
+
+      // Container is ready, initialize terminal
+      initTerminal(container);
     };
 
-    createSession();
+    const initTerminal = (container: HTMLDivElement) => {
+      if (!mounted) return;
 
-    // Handle terminal input
-    xterm.onData((data: string) => {
-      const currentSessionId = sessionIdRef.current;
-      if (!currentSessionId) return;
+      const xterm = new Terminal({
+        theme: {
+          background: '#0d1117',
+          foreground: '#c9d1d9',
+          cursor: '#58a6ff',
+          cursorAccent: '#0d1117',
+          selectionBackground: '#264f78',
+          black: '#484f58',
+          red: '#f97583',
+          green: '#85e89d',
+          yellow: '#ffea7f',
+          blue: '#79b8ff',
+          magenta: '#b392f0',
+          cyan: '#56d4dd',
+          white: '#e1e4e8',
+          brightBlack: '#6a737d',
+          brightRed: '#f97583',
+          brightGreen: '#85e89d',
+          brightYellow: '#ffea7f',
+          brightBlue: '#79b8ff',
+          brightMagenta: '#b392f0',
+          brightCyan: '#56d4dd',
+          brightWhite: '#fafbfc'
+        },
+        fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace',
+        fontSize: 14,
+        lineHeight: 1.2,
+        cursorBlink: true,
+        cursorStyle: 'bar',
+        scrollback: 5000,
+        allowTransparency: true,
+        cols: 80,
+        rows: 24
+      });
 
-      // Analyze command on Enter
-      if (data === '\r') {
-        const lines = xterm.buffer.active.getLine(xterm.buffer.active.cursorY)?.translateToString() || '';
-        const cmdMatch = lines.match(/\$\s+(.+)$/);
-        if (cmdMatch) {
-          const cmd = cmdMatch[1].trim();
-          if (cmd) {
-            const analysis = analyzeCommand(cmd);
-            setAiAnalysis(analysis);
-            
-            // Add to history
-            setHistory(prev => [...prev, {
-              id: crypto.randomUUID(),
-              command: cmd,
-              timestamp: new Date().toISOString(),
-              riskLevel: analysis.riskLevel
-            }]);
+      const fitAddon = new FitAddon();
+      const webLinksAddon = new WebLinksAddon();
+      const searchAddon = new SearchAddon();
 
-            if (analysis.shouldConfirm) {
-              setPendingCommand(cmd);
-              setShowConfirm(true);
-              return; // Don't send yet
+      xterm.loadAddon(fitAddon);
+      xterm.loadAddon(webLinksAddon);
+      xterm.loadAddon(searchAddon);
+
+      xterm.open(container);
+
+      xtermRef.current = xterm;
+      fitAddonRef.current = fitAddon;
+
+      // Fit terminal after render
+      requestAnimationFrame(() => {
+        try {
+          if (xterm.element && mounted) {
+            fitAddon.fit();
+          }
+        } catch (e) {
+          console.warn('Fit failed:', e);
+        }
+      });
+
+      // Welcome message
+      xterm.writeln('\x1b[36m╔════════════════════════════════════════════════════════════╗\x1b[0m');
+      xterm.writeln('\x1b[36m║\x1b[0m  \x1b[1;34mAI-Powered Terminal\x1b[0m                                \x1b[36m║\x1b[0m');
+      xterm.writeln('\x1b[36m║\x1b[0m  \x1b[90mCreating session...\x1b[0m                                    \x1b[36m║\x1b[0m');
+      xterm.writeln('\x1b[36m╚════════════════════════════════════════════════════════════╝\x1b[0m');
+      xterm.writeln('');
+
+      setIsReady(true);
+
+      // Create session
+      const createSession = async () => {
+        try {
+          const response = await fetch('/api/terminal?action=create');
+          const data = await response.json();
+          
+          if (!mounted) return;
+
+          if (data.success && data.sessionId) {
+            sessionIdRef.current = data.sessionId;
+            setSessionId(data.sessionId);
+            setIsConnected(true);
+            setIsConnecting(false);
+            setCurrentCwd(data.cwd || '~');
+            onSessionCreated?.(data.sessionId);
+
+            xterm.writeln('\x1b[32m✓ Terminal session created\x1b[0m');
+            xterm.writeln(`\x1b[36m  Session: ${data.sessionId.slice(0, 8)}...\x1b[0m`);
+            xterm.writeln(`\x1b[36m  Working directory: ${data.cwd || '~'}\x1b[0m`);
+            xterm.writeln('');
+            xterm.write('\x1b[1;32m➜\x1b[0m \x1b[1;34m~\x1b[0m $ ');
+
+            // Start SSE connection for output
+            const eventSource = new EventSource(`/api/terminal?action=output&sessionId=${data.sessionId}`);
+            eventSourceRef.current = eventSource;
+
+            eventSource.onmessage = (event) => {
+              try {
+                const parsed = JSON.parse(event.data);
+                if (parsed.output) {
+                  xterm.write(parsed.output);
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            };
+
+            eventSource.onerror = () => {
+              // Reconnect logic could go here
+            };
+
+          } else {
+            throw new Error(data.error || 'Failed to create session');
+          }
+        } catch (err: any) {
+          if (!mounted) return;
+          setError(err.message);
+          setIsConnecting(false);
+          setIsConnected(false);
+          xterm.writeln(`\x1b[31m✗ Error: ${err.message}\x1b[0m`);
+        }
+      };
+
+      createSession();
+
+      // Handle terminal input
+      xterm.onData((data: string) => {
+        const currentSessionId = sessionIdRef.current;
+        if (!currentSessionId) return;
+
+        // Analyze command on Enter
+        if (data === '\r') {
+          const lines = xterm.buffer.active.getLine(xterm.buffer.active.cursorY)?.translateToString() || '';
+          const cmdMatch = lines.match(/\$\s+(.+)$/);
+          if (cmdMatch) {
+            const cmd = cmdMatch[1].trim();
+            if (cmd) {
+              const analysis = analyzeCommand(cmd);
+              setAiAnalysis(analysis);
+              
+              // Add to history
+              setHistory(prev => [...prev, {
+                id: crypto.randomUUID(),
+                command: cmd,
+                timestamp: new Date().toISOString(),
+                riskLevel: analysis.riskLevel
+              }]);
+
+              if (analysis.shouldConfirm) {
+                setPendingCommand(cmd);
+                setShowConfirm(true);
+                return; // Don't send yet
+              }
             }
           }
         }
-      }
 
-      // Send input to terminal
-      fetch('/api/terminal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: currentSessionId, input: data })
-      }).catch(console.error);
-    });
+        // Send input to terminal
+        fetch('/api/terminal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: currentSessionId, input: data })
+        }).catch(console.error);
+      });
+    };
+
+    // Start initialization
+    checkAndInit();
 
     // Handle resize
     const handleResize = () => {
-      if (fitAddonRef.current && xtermRef.current) {
-        fitAddonRef.current.fit();
-        const currentSessionId = sessionIdRef.current;
-        if (currentSessionId) {
-          fetch('/api/terminal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              sessionId: currentSessionId, 
-              cols: xtermRef.current.cols, 
-              rows: xtermRef.current.rows 
-            })
-          }).catch(console.error);
+      try {
+        if (fitAddonRef.current && xtermRef.current && xtermRef.current.element) {
+          fitAddonRef.current.fit();
         }
+      } catch (e) {
+        console.warn('Resize handler failed:', e);
       }
     };
 
     window.addEventListener('resize', handleResize);
-    setTimeout(handleResize, 100);
 
     return () => {
       mounted = false;
+      window.removeEventListener('resize', handleResize);
       eventSourceRef.current?.close();
-      xterm.dispose();
+      if (xtermRef.current) {
+        xtermRef.current.dispose();
+      }
     };
-  }, [analyzeCommand, onSessionCreated]);
+  }, [onSessionCreated]); // Terminal initialization
 
   // Handle command confirmation
   const handleConfirmExecute = useCallback(() => {
@@ -306,7 +335,7 @@ export function TerminalClient({
 
   // Natural language to command (simplified)
   const handleNlToCommand = useCallback(async () => {
-    if (!nlInput.trim()) return;
+    if (!nlInput.trim() || !xtermRef.current) return;
     setIsAiLoading(true);
     
     // Simple command mappings
@@ -324,9 +353,7 @@ export function TerminalClient({
 
     const cmd = mappings[nlInput.toLowerCase()] || `echo "Command not recognized: ${nlInput}"`;
     
-    if (xtermRef.current) {
-      xtermRef.current.write(cmd);
-    }
+    xtermRef.current.write(cmd);
     
     setIsAiLoading(false);
     setNlInput('');
@@ -350,7 +377,7 @@ export function TerminalClient({
   };
 
   return (
-    <div className="flex h-full bg-[#0d1117]">
+    <div className="flex h-full bg-[#0d1117] relative">
       {/* Main Terminal Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Terminal Header */}
@@ -386,7 +413,7 @@ export function TerminalClient({
         <div 
           ref={terminalRef} 
           className="flex-1 p-2 overflow-hidden"
-          style={{ minHeight: '300px' }}
+          style={{ minHeight: '200px' }}
         />
 
         {/* Confirmation Dialog */}

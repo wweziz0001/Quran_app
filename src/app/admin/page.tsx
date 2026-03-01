@@ -1,5 +1,7 @@
 'use client';
 
+// Admin Dashboard - v1.4.0 with AI Terminal
+
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
