@@ -357,46 +357,74 @@ CMD ["bun", "run", "dist/index.js"]
 
 interface ServiceStatus {
   name: string;
-  status: 'healthy' | 'unhealthy' | 'unknown';
+  status: 'healthy' | 'unhealthy' | 'not_running' | 'unknown';
   uptime?: number;
+  version?: string;
+  responseTime?: number;
+  error?: string;
   port: number;
+  description?: string;
+  checks?: {
+    database: boolean;
+    cache?: boolean;
+    external?: boolean;
+  };
+}
+
+interface HealthCheckResponse {
+  success: boolean;
+  data: {
+    summary: {
+      total: number;
+      healthy: number;
+      unhealthy: number;
+      notRunning: number;
+      lastChecked: string;
+    };
+    services: ServiceStatus[];
+  };
 }
 
 export function DeploymentSection() {
   const [serviceStatuses, setServiceStatuses] = useState<ServiceStatus[]>(
-    services.map(s => ({ name: s.name, status: 'unknown', port: s.port }))
+    services.map(s => ({ name: s.name, status: 'unknown' as const, port: s.port, description: s.description }))
   );
   const [isChecking, setIsChecking] = useState(false);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [summary, setSummary] = useState<{ healthy: number; unhealthy: number; notRunning: number } | null>(null);
 
   const checkServicesHealth = async () => {
     setIsChecking(true);
     
-    // In development, simulate health checks
-    // In production, this would call each service's /health endpoint
-    const newStatuses = await Promise.all(
-      services.map(async (service) => {
-        try {
-          // Simulated health check - in production:
-          // const response = await fetch(\`http://localhost:\${service.port}/health\`);
-          // const data = await response.json();
-          return {
-            name: service.name,
-            status: 'healthy' as const,
-            uptime: Math.floor(Math.random() * 86400),
-            port: service.port,
-          };
-        } catch {
-          return {
-            name: service.name,
-            status: 'unhealthy' as const,
-            port: service.port,
-          };
-        }
-      })
-    );
-    
-    setServiceStatuses(newStatuses);
-    setIsChecking(false);
+    try {
+      // Call the real API endpoint for health checks
+      const response = await fetch('/api/admin/deployment/services-health');
+      const data: HealthCheckResponse = await response.json();
+      
+      if (data.success && data.data) {
+        setServiceStatuses(data.data.services);
+        setLastChecked(data.data.summary.lastChecked);
+        setSummary({
+          healthy: data.data.summary.healthy,
+          unhealthy: data.data.summary.unhealthy,
+          notRunning: data.data.summary.notRunning,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to check services health:', error);
+      // Set all to unknown on error
+      setServiceStatuses(
+        services.map(s => ({ 
+          name: s.name, 
+          status: 'unknown' as const, 
+          port: s.port, 
+          description: s.description,
+          error: 'Failed to check health'
+        }))
+      );
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   useEffect(() => {
@@ -468,19 +496,51 @@ export function DeploymentSection() {
       {/* Services Status */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Services Status
-          </CardTitle>
-          <CardDescription>
-            Real-time health status of all microservices
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Services Status
+              </CardTitle>
+              <CardDescription>
+                Real-time health status of all microservices
+                {lastChecked && (
+                  <span className="text-xs ml-2">
+                    (Last checked: {new Date(lastChecked).toLocaleTimeString()})
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            {summary && (
+              <div className="flex gap-2">
+                <Badge className="bg-emerald-500/10 text-emerald-500">
+                  {summary.healthy} Healthy
+                </Badge>
+                {summary.unhealthy > 0 && (
+                  <Badge className="bg-amber-500/10 text-amber-500">
+                    {summary.unhealthy} Unhealthy
+                  </Badge>
+                )}
+                {summary.notRunning > 0 && (
+                  <Badge className="bg-red-500/10 text-red-500">
+                    {summary.notRunning} Not Running
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {serviceStatuses.map((status, index) => {
               const service = services[index];
               const Icon = service.icon;
+              const statusColor = 
+                status.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' :
+                status.status === 'unhealthy' ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20' :
+                status.status === 'not_running' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' :
+                'bg-slate-500/10 text-slate-500 hover:bg-slate-500/20';
+              
               return (
                 <div
                   key={status.name}
@@ -493,19 +553,20 @@ export function DeploymentSection() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm truncate">{status.name}</p>
                       <Badge
-                        variant={status.status === 'healthy' ? 'default' : 'secondary'}
-                        className={`text-xs ${
-                          status.status === 'healthy' 
-                            ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' 
-                            : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
-                        }`}
+                        variant="secondary"
+                        className={`text-xs ${statusColor}`}
                       >
-                        {status.status}
+                        {status.status === 'not_running' ? 'not running' : status.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      :{status.port} • {service.description}
+                      :{status.port} • {status.description || service.description}
                     </p>
+                    {status.responseTime && (
+                      <p className="text-xs text-muted-foreground">
+                        {status.responseTime}ms
+                      </p>
+                    )}
                   </div>
                 </div>
               );
