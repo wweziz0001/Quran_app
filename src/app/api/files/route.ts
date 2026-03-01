@@ -19,7 +19,13 @@ const ALLOWED_PATTERNS = [
   /^\.env\.example$/,
   /^bun\.lockb$/,
   /^postcss\.config\.mjs$/,
-  /^VERSION$/,        // VERSION file
+  /^VERSION$/,              // VERSION file
+  /^README\.md$/,           // README.md file
+  /^AI_INSTRUCTIONS\.md$/,  // AI Instructions
+  /^DEVELOPMENT_GUIDE\.md$/, // Development Guide
+  /^\.cursorrules$/,        // Cursor rules
+  /^Caddyfile$/,            // Caddy config
+  /^eslint\.config\.mjs$/,  // ESLint config
 ];
 
 // Excluded patterns (even if in allowed directories)
