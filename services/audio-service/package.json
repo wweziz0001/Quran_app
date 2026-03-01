@@ -1,0 +1,14 @@
+{
+  "name": "@quran/audio-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  }
+}

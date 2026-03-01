@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-service
+  namespace: quran
+  labels:
+    app: admin-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-service
+  template:
+    metadata:
+      labels:
+        app: admin-service
+    spec:
+      containers:
+      - name: admin-service
+        image: quran/admin-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3008
+          name: http
+        envFrom:
+        - configMapRef:
+            name: quran-config
+        - secretRef:
+            name: quran-secrets
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3008
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3008
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: backups
+          mountPath: /app/backups
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: quran-data-pvc
+      - name: backups
+        persistentVolumeClaim:
+          claimName: quran-backups-pvc

@@ -18,6 +18,54 @@
 
 ---
 
+## [1.6.0] - 2025-01-17
+
+### ✨ الميزات الجديدة - Stage 2: Microservices Scaffold
+
+#### تحويل إلى بنية Microservices
+
+تم تحويل التطبيق من Monolithic إلى بنية Microservices مع 8 خدمات مستقلة:
+
+| الخدمة | المنفذ | الوصف |
+|--------|--------|-------|
+| `quran-service` | 3001 | السور، الآيات، المصاحف |
+| `audio-service` | 3002 | القراء، التلاوات، البث الصوتي |
+| `search-service` | 3003 | البحث، تكامل Elasticsearch |
+| `tafsir-service` | 3004 | التفاسير، الترجمات |
+| `users-service` | 3005 | المصادقة، المستخدمين، الجلسات |
+| `reciter-service` | 3006 | إدارة القراء |
+| `ai-service` | 3007 | الـ embeddings، ميزات AI |
+| `admin-service` | 3008 | لوحة التحكم، إدارة قاعدة البيانات |
+
+#### الملفات الجديدة
+
+**الخدمات (services/):**
+- `services/shared/` - الوحدة المشتركة (db, types, middleware, utils)
+- `services/quran-service/` - خدمة القرآن
+- `services/audio-service/` - خدمة الصوتيات
+- `services/search-service/` - خدمة البحث
+- `services/tafsir-service/` - خدمة التفاسير
+- `services/users-service/` - خدمة المستخدمين
+- `services/reciter-service/` - خدمة القراء
+- `services/ai-service/` - خدمة الذكاء الاصطناعي
+- `services/admin-service/` - خدمة الإدارة
+
+**Kubernetes (k8s/):**
+- `k8s/namespace.yaml` - Namespace
+- `k8s/configmaps/app-config.yaml` - ConfigMap
+- `k8s/secrets/app-secrets.yaml` - Secrets
+- `k8s/deployments/` - 6 ملفات Deployment
+- `k8s/services/` - 6 ملفات Service
+- `k8s/ingress.yaml` - Ingress
+
+**Docker:**
+- `docker-compose.yml` - للتطوير المحلي
+- Dockerfile لكل خدمة
+
+**التفاصيل:** انظر `changelog/v1.6.0.md`
+
+---
+
 ## [1.5.2] - 2025-01-16
 
 ### 🔧 الإصلاحات

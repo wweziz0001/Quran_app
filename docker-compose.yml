@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # Quran Service
+  quran-service:
+    build:
+      context: ./services
+      dockerfile: quran-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/quran-service/src:/app/src
+      - ./services/shared:/app/shared
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Audio Service
+  audio-service:
+    build:
+      context: ./services
+      dockerfile: audio-service/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/audio-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # Search Service
+  search-service:
+    build:
+      context: ./services
+      dockerfile: search-service/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/search-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # Tafsir Service
+  tafsir-service:
+    build:
+      context: ./services
+      dockerfile: tafsir-service/Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/tafsir-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # Users Service
+  users-service:
+    build:
+      context: ./services
+      dockerfile: users-service/Dockerfile
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+    volumes:
+      - ./db:/data
+      - ./services/users-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # Reciter Service
+  reciter-service:
+    build:
+      context: ./services
+      dockerfile: reciter-service/Dockerfile
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/reciter-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./services
+      dockerfile: ai-service/Dockerfile
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+      - Z_AI_API_KEY=${Z_AI_API_KEY}
+    volumes:
+      - ./db:/data
+      - ./services/ai-service/src:/app/src
+      - ./services/shared:/app/shared
+
+  # Admin Service
+  admin-service:
+    build:
+      context: ./services
+      dockerfile: admin-service/Dockerfile
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/data/quran.db
+    volumes:
+      - ./db:/data
+      - ./services/admin-service/src:/app/src
+      - ./services/shared:/app/shared
+      - ./backups:/app/backups
+
+  # Gateway (Caddy)
+  gateway:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - quran-service
+      - audio-service
+      - search-service
+      - tafsir-service
+      - users-service
+      - ai-service
+      - admin-service
+
+networks:
+  default:
+    name: quran-network
