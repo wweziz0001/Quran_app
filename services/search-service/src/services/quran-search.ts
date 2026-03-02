@@ -7,7 +7,7 @@
  * @module search-service
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import {
   search as esSearch,
   autocomplete as esAutocomplete,

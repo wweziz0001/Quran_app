@@ -7,7 +7,7 @@
  * @module embeddings
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { generateEmbedding } from '../lib/z-ai-client';
 
 // Constants

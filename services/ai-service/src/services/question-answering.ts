@@ -7,7 +7,7 @@
  * @module question-answering
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { answerQuranQuestion, chatCompletion } from '../lib/z-ai-client';
 import { semanticSearch } from './semantic-search';
 

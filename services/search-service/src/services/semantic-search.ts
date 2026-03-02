@@ -3,7 +3,7 @@
  * Provides AI-powered semantic search using embeddings
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 
 interface SemanticSearchResult {
   ayahId: number;

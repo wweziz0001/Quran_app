@@ -1,4 +1,4 @@
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 
 /**
  * Get ayah count statistics

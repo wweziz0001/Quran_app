@@ -14,7 +14,7 @@ import {
   tokenize,
 } from './arabic-normalizer';
 import { search as esSearch, INDICES } from './elasticsearch';
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 
 // Types
 export interface AutocompleteSuggestion {
