@@ -125,7 +125,7 @@ jobs:
         timeout-minutes: 2
 
       - name: 📤 Upload test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always() && hashFiles('coverage/*') != ''
         with:
           name: unit-test-results
@@ -309,7 +309,7 @@ jobs:
         continue-on-error: true
 
       - name: 📤 Upload Playwright Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -466,7 +466,7 @@ jobs:
         continue-on-error: true
 
       - name: 📤 Upload combined test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: combined-test-report
           path: ./
