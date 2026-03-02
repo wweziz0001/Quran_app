@@ -155,6 +155,108 @@ MAJOR.MINOR.PATCH (مثال: 1.2.6)
 انظر [changelog/CHANGELOG.md](./changelog/CHANGELOG.md) للتفاصيل الكاملة.
 
 ---
+🚀 تعليمات تشغيل الـ Microservices محلياً
+1️⃣ متطلبات التشغيل
+تأكد من تثبيت:
+
+Bun (وقت التشغيل)
+FFmpeg (للمعالجة الصوتية - اختياري)
+2️⃣ تشغيل التطبيق الرئيسي
+```bash
+# التطبيق الرئيسي يعمل تلقائياً على منفذ 3000
+bun run dev
+```
+3️⃣ تشغيل الـ Microservices
+لكل خدمة يمكنك تشغيلها بشكل منفصل:
+
+```bash
+
+# AI Service (منفذ 3007)
+cd services/ai-service && bun run dev
+
+# Audio Service (منفذ 3002)
+cd services/audio-service && bun run dev
+
+# Search Service (منفذ 3003)
+cd services/search-service && bun run dev
+
+# Quran Service (منفذ 3001)
+cd services/quran-service && bun run dev
+
+# Tafsir Service (منفذ 3004)
+cd services/tafsir-service && bun run dev
+
+# Users Service (منفذ 3005)
+cd services/users-service && bun run dev
+
+# Reciter Service (منفذ 3006)
+cd services/reciter-service && bun run dev
+
+# Admin Service (منفذ 3008)
+cd services/admin-service && bun run dev
+```
+
+4️⃣ تشغيل جميع الخدمات دفعة واحدة
+```bash
+# تشغيل جميع الخدمات في الخلفية
+cd services/ai-service && bun run dev &
+cd services/audio-service && bun run dev &
+cd services/search-service && bun run dev &
+cd services/quran-service && bun run dev &
+cd services/tafsir-service && bun run dev &
+cd services/users-service && bun run dev &
+cd services/reciter-service && bun run dev &
+cd services/admin-service && bun run dev &
+```
+
+5️⃣ التحقق من عمل الخدمات
+```bash
+# فحص صحة كل خدمة
+curl http://localhost:3001/health?XTransformPort=3001  # Quran
+curl http://localhost:3002/health?XTransformPort=3002  # Audio
+curl http://localhost:3003/health?XTransformPort=3003  # Search
+curl http://localhost:3007/health?XTransformPort=3007  # AI
+```
+
+6️⃣ استخدام Docker (للإنتاج)
+```bash
+# تشغيل جميع الخدمات مع Docker Compose
+docker-compose up -d
+
+# أو بناء وتشغيل خدمة محددة
+docker build -t quran-ai-service ./services/ai-service
+docker run -p 3007:3007 quran-ai-service
+```
+
+7️⃣ هيكلية الطلب عبر Gateway
+عند الطلب من الـ API Routes، يتم تمرير XTransformPort:
+
+```javascript
+// مثال: طلب من AI Service
+fetch('/api/embeddings?XTransformPort=3007', {
+  method: 'POST',
+  body: JSON.stringify({ ayahId: 1 })
+})
+```
+8️⃣ المنافذ المستخدمة
+
+| الوصف | المنفذ | الخدمة |
+|-------|-------|-------|
+| Next.js |	3000 | التطبيق الرئيسي |
+| quran-service |	3001 | السور والآيات |
+| audio-service |	3002 |	الصوتيات والبث
+| search-service |	3003 |	البحث
+| tafsir-service |	3004 |	التفاسير
+| users-service |	3005 |	المستخدمين
+| reciter-service |	3006 |	القراء
+| ai-service |	3007 |	الذكاء الاصطناعي
+| admin-service |	3008 |	الإدارة
+
+⚠️ ملاحظات مهمة
+للتطوير المحلي: يمكنك الاكتفاء بتشغيل Next.js فقط (الخدمات الاختيارية)
+للإنتاج: استخدم Docker Compose أو Kubernetes
+Gateway: تأكد من أن Caddy يعمل لتوجيه الطلبات
+
 
 ## 📜 الترخيص
 
