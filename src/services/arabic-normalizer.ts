@@ -57,7 +57,7 @@ const DIACRITICS = [
   '\u065D', // Reversed rounded high stop
   '\u065E', // Rounded high stop
   '\u065F', // Hamza below
-  '\u0671', // Alef wasla
+  // Note: '\u0671' (Alef wasla - ٱ) is NOT removed here because it's normalized to 'ا' in CHAR_NORMALIZATIONS
   '\u06DC', // Small high rounded zero
   '\u06DF', // Small high rounded zero with filled centre
   '\u06E0', // Small high rounded zero with dot
