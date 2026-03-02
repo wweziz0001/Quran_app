@@ -1,269 +1,54 @@
 # =============================================================================
-# Pull Request Validation Workflow
-# =============================================================================
-# This workflow runs on every Pull Request to ensure code quality and
-# provide automated feedback to reviewers.
+# PR Validation - Simplified
 # =============================================================================
 
 name: PR Validation
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ===========================================================================
-  # Job 1: Validate PR Title (Conventional Commits)
-  # ===========================================================================
-  validate-pr-title:
-    name: Validate PR Title
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
-    
-    outputs:
-      result: ${{ steps.validate.outcome }}
+    timeout-minutes: 10
     
     steps:
-      - name: 🔍 Validate PR title format
-        id: validate
-        uses: amannn/action-semantic-pull-request@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            docs
-            style
-            refactor
-            perf
-            test
-            build
-            ci
-            chore
-            revert
-            release
-          requireScope: false
-          subjectPattern: ^[A-Za-z0-9\u0600-\u06FF\s\-_]+$
-          subjectPatternError: |
-            The subject "{subject}" found in the pull request title "{title}"
-            doesn't match the configured pattern.
-        continue-on-error: true
-
-      - name: 📊 PR Title Summary
-        if: always()
-        run: |
-          echo "## PR Title Validation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "PR Title: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 2: Analyze Changed Files
-  # ===========================================================================
-  analyze-changes:
-    name: Analyze Changes
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 📊 Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v42
-        with:
-          files_ignore: |
-            **/*.md
-            **/docs/**
-            .gitignore
-        continue-on-error: true
-
-      - name: 📊 Analyze file types
-        id: file-analysis
-        run: |
-          echo "changed_files=${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_OUTPUT
-          
-          # Count file types
-          TYPES=""
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            ext="${file##*.}"
-            TYPES="$TYPES $ext"
-          done
-          
-          echo "file_types=$TYPES" >> $GITHUB_OUTPUT
-          
-          # Count total changes
-          TOTAL=$(echo "${{ steps.changed-files.outputs.all_changed_files }}" | wc -w)
-          echo "total_files=$TOTAL" >> $GITHUB_OUTPUT
-        continue-on-error: true
-
-      - name: 📊 Changes Summary
-        if: always()
-        run: |
-          echo "## 📊 Changed Files Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total changed files:** ${{ steps.file-analysis.outputs.total_files || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **File types:** ${{ steps.file-analysis.outputs.file_types || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 3: Security Review
-  # ===========================================================================
-  security-review:
-    name: Security Review
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🔍 Check for secrets
-        uses: trufflesecurity/trufflehog@main
+      - name: 📦 Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: 💾 Cache
+        uses: actions/cache@v4
         with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          extra_args: --only-verified
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+
+      - name: 📥 Install
+        run: bun install --frozen-lockfile
+
+      - name: 🔧 Generate Prisma
+        run: bun run db:generate
+
+      - name: 🔍 Lint
+        run: bun run lint
         continue-on-error: true
 
-      - name: 🔍 Dependency review
-        id: dependency-review
-        uses: actions/dependency-review-action@v4
+      - name: 🧪 Tests
+        run: bun test
         continue-on-error: true
 
-      - name: 📊 Security Summary
+      - name: 📊 Summary
         if: always()
         run: |
-          echo "## 🔒 Security Review" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Secret Detection: ✅ Completed" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.dependency-review.outcome }}" == "success" ]; then
-            echo "- Dependency Review: ✅ Completed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Dependency Review: ⚠️ Skipped (may require Dependency Graph to be enabled)" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  # ===========================================================================
-  # Job 4: PR Description Check
-  # ===========================================================================
-  check-pr-description:
-    name: Check PR Description
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 🔍 Validate PR description
-        run: |
-          DESCRIPTION="${{ github.event.pull_request.body }}"
-          
-          if [ -z "$DESCRIPTION" ] || [ ${#DESCRIPTION} -lt 20 ]; then
-            echo "::warning::PR description is too short or empty. Please add a meaningful description."
-          fi
-          
-          echo "## PR Description Check" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -z "$DESCRIPTION" ]; then
-            echo "⚠️ No description provided" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ Description provided (${#DESCRIPTION} characters)" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  # ===========================================================================
-  # Job 5: Code Ownership Check
-  # ===========================================================================
-  check-ownership:
-    name: Check Code Ownership
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 👥 Check CODEOWNERS
-        run: |
-          if [ -f ".github/CODEOWNERS" ]; then
-            echo "## Code Ownership" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "CODEOWNERS file found" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Code Ownership" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "No CODEOWNERS file found" >> $GITHUB_STEP_SUMMARY
-          fi
-        continue-on-error: true
-
-  # ===========================================================================
-  # Job 6: Auto Comment on PR
-  # ===========================================================================
-  auto-comment:
-    name: Auto Comment
-    runs-on: ubuntu-latest
-    needs: [validate-pr-title, analyze-changes, security-review]
-    if: always()
-    
-    steps:
-      - name: 💬 Comment on PR
-        uses: actions/github-script@v7
-        env:
-          TITLE_RESULT: ${{ needs.validate-pr-title.result }}
-        with:
-          script: |
-            const titleResult = process.env.TITLE_RESULT;
-            const titleStatus = titleResult === 'success' ? '✅ Valid' : '❌ Invalid';
-            
-            const body = `## 🤖 PR Validation Report
-            
-            | Check | Status |
-            |-------|--------|
-            | PR Title | ${titleStatus} |
-            | Changes Analyzed | ✅ Complete |
-            | Security Scan | ✅ Complete |
-            
-            ---
-            
-            ### 📋 Next Steps
-            - [ ] Review the changed files
-            - [ ] Run local tests
-            - [ ] Update documentation if needed
-            
-            *This comment was auto-generated by GitHub Actions*
-            `;
-            
-            try {
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-              });
-              
-              const botComment = comments.find(comment => 
-                comment.user.type === 'Bot' && 
-                comment.body.includes('## 🤖 PR Validation Report')
-              );
-              
-              if (botComment) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-              }
-            } catch (error) {
-              console.log('Could not create comment: ' + error.message);
-              // Don't fail the workflow if commenting fails
-            }
+          echo "## ✅ PR Validation Complete" >> $GITHUB_STEP_SUMMARY

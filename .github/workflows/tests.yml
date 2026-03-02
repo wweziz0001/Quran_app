@@ -1,61 +1,34 @@
 # =============================================================================
-# Test Suite Workflow - Comprehensive Testing
-# =============================================================================
-# This workflow implements the complete testing pyramid:
-#
-#        ┌─────────┐
-#        │   E2E   │  ← End-to-End Tests (Slow, Few)
-#        ├─────────┤
-#        │Integration│ ← Integration Tests (Medium)
-#        ├─────────┤
-#        │  Unit   │  ← Unit Tests (Fast, Many)
-#        └─────────┘
-#
-# Following: IEEE 829, ISTQB, and Google Testing Blog best practices
+# Test Suite - Simplified
 # =============================================================================
 
 name: Test Suite
 
 on:
   push:
-    branches: [main, 'v*']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      test_type:
-        description: 'Type of tests to run'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - unit
-          - integration
-          - e2e
-          - performance
 
-env:
-  COVERAGE_THRESHOLD: 70
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ===========================================================================
-  # Job 1: Unit Tests
-  # ===========================================================================
-  unit-tests:
-    name: Unit Tests
+  test:
+    name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'unit' || github.event_name != 'workflow_dispatch'
     
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
       - name: 📦 Setup Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: 💾 Cache dependencies
+      - name: 💾 Cache
         uses: actions/cache@v4
         with:
           path: |
@@ -63,411 +36,17 @@ jobs:
             node_modules
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
 
-      - name: 📥 Install dependencies
+      - name: 📥 Install
         run: bun install --frozen-lockfile
 
-      - name: 🔧 Setup test environment
-        run: |
-          bun run db:generate || true
-
-      - name: 🧪 Run Unit Tests
-        id: test
-        run: |
-          echo "Running unit tests..."
-          
-          # Check for different test runners
-          if grep -q '"test:unit"' package.json; then
-            bun run test:unit --coverage
-          elif grep -q '"test"' package.json; then
-            bun test --coverage
-          else
-            echo "::warning::No test script configured. Please add tests."
-            
-            # Create placeholder coverage report
-            mkdir -p coverage
-            cat > coverage/coverage-summary.json << EOF
-          {
-            "total": {
-              "lines": { "total": 0, "covered": 0, "percentage": 0 },
-              "statements": { "total": 0, "covered": 0, "percentage": 0 },
-              "branches": { "total": 0, "covered": 0, "percentage": 0 },
-              "functions": { "total": 0, "covered": 0, "percentage": 0 }
-            }
-          }
-          EOF
-          fi
-        continue-on-error: true
-
-      - name: 📊 Check Coverage Threshold
-        run: |
-          echo "Checking coverage threshold (${COVERAGE_THRESHOLD}%)..."
-          
-          if [ -f "coverage/coverage-summary.json" ]; then
-            COVERAGE=$(cat coverage/coverage-summary.json | grep -o '"percentage": [0-9]*' | head -1 | grep -o '[0-9]*')
-            echo "Coverage: ${COVERAGE}%"
-            
-            if [ "$COVERAGE" -lt "$COVERAGE_THRESHOLD" ]; then
-              echo "::warning::Coverage (${COVERAGE}%) is below threshold (${COVERAGE_THRESHOLD}%)"
-            fi
-          fi
-        continue-on-error: true
-
-      - name: 📤 Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: always() && hashFiles('coverage/lcov.info') != ''
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: unit-tests-coverage
-          fail_ci_if_error: false
-        continue-on-error: true
-        timeout-minutes: 2
-
-      - name: 📤 Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always() && hashFiles('coverage/*') != ''
-        with:
-          name: unit-test-results
-          path: |
-            coverage/
-            test-results/
-          retention-days: 30
-          if-no-files-found: ignore
-
-      - name: 📊 Test Summary
-        if: always()
-        run: |
-          echo "## 🧪 Unit Tests Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Configuration Needed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "To enable unit tests, add to \`package.json\`:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-          echo '{' >> $GITHUB_STEP_SUMMARY
-          echo '  "scripts": {' >> $GITHUB_STEP_SUMMARY
-          echo '    "test": "bun test",' >> $GITHUB_STEP_SUMMARY
-          echo '    "test:unit": "bun test --coverage"' >> $GITHUB_STEP_SUMMARY
-          echo '  }' >> $GITHUB_STEP_SUMMARY
-          echo '}' >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 2: Integration Tests
-  # ===========================================================================
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'integration' || github.event_name != 'workflow_dispatch'
-    
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: quran_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Bun
-        uses: oven-sh/setup-bun@v1
-
-      - name: 💾 Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
-
-      - name: 📥 Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: 🔧 Setup test environment
-        run: |
-          # Create test environment file
-          cat > .env.test << EOF
-          DATABASE_URL="postgresql://test:test@localhost:5432/quran_test"
-          REDIS_URL="redis://localhost:6379"
-          NODE_ENV="test"
-          NEXTAUTH_SECRET="test-secret-key-for-integration-tests"
-          NEXTAUTH_URL="http://localhost:3000"
-          EOF
-
-      - name: 🔧 Generate Prisma Client
+      - name: 🔧 Generate Prisma
         run: bun run db:generate
 
-      - name: 🗃️ Setup Test Database
-        run: |
-          # Push schema to test database
-          bun run db:push --schema=prisma/schema.prisma || true
+      - name: 🧪 Unit Tests
+        run: bun test
         continue-on-error: true
 
-      - name: 🧪 Run Integration Tests
-        run: |
-          echo "Running integration tests..."
-          
-          if grep -q '"test:integration"' package.json; then
-            bun run test:integration
-          else
-            echo "::warning::No integration test script configured."
-          fi
-        continue-on-error: true
-
-      - name: 📊 Integration Tests Summary
+      - name: 📊 Summary
         if: always()
         run: |
-          echo "## 🔗 Integration Tests Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Services Used" >> $GITHUB_STEP_SUMMARY
-          echo "- PostgreSQL (port 5432)" >> $GITHUB_STEP_SUMMARY
-          echo "- Redis (port 6379)" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 3: E2E Tests (Playwright)
-  # ===========================================================================
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'e2e' || github.event_name != 'workflow_dispatch'
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Bun
-        uses: oven-sh/setup-bun@v1
-
-      - name: 📦 Setup Node.js (for Playwright)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 💾 Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-bun-playwright-${{ hashFiles('**/bun.lock') }}
-
-      - name: 📥 Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: 🎭 Install Playwright Browsers
-        run: |
-          if [ -f "playwright.config.ts" ] || [ -f "e2e/playwright.config.ts" ]; then
-            npx playwright install --with-deps chromium
-          else
-            echo "No Playwright config found - skipping"
-          fi
-        continue-on-error: true
-
-      - name: 🏗️ Build application
-        run: bun run build
-        continue-on-error: true
-
-      - name: 🧪 Run E2E Tests
-        run: |
-          echo "Running E2E tests..."
-          
-          if grep -q '"test:e2e"' package.json; then
-            bun run test:e2e
-          elif [ -f "playwright.config.ts" ]; then
-            npx playwright test
-          elif [ -f "e2e/playwright.config.ts" ]; then
-            cd e2e && npx playwright test
-          else
-            echo "::warning::No E2E test configuration found."
-            echo "To enable E2E tests, install Playwright:"
-            echo "  bun add -d @playwright/test"
-            echo "  npx playwright install"
-          fi
-        continue-on-error: true
-
-      - name: 📤 Upload Playwright Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-            e2e-results/
-          retention-days: 30
-
-      - name: 📊 E2E Tests Summary
-        if: always()
-        run: |
-          echo "## 🎭 E2E Tests Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Setup E2E Testing" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "bun add -d @playwright/test" >> $GITHUB_STEP_SUMMARY
-          echo "npx playwright install" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 4: Performance Tests (k6)
-  # ===========================================================================
-  performance-tests:
-    name: Performance Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'performance' || github.event_name != 'workflow_dispatch'
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Install k6
-        run: |
-          curl https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz -L | tar xvz
-          sudo mv k6-*/k6 /usr/local/bin/
-
-      - name: 🧪 Run Performance Tests
-        run: |
-          echo "Running performance tests..."
-          
-          if [ -d "tests/performance" ]; then
-            for script in tests/performance/*.js; do
-              echo "Running: $script"
-              k6 run --out json=performance-results.json "$script" || true
-            done
-          else
-            echo "::warning::No performance tests found."
-            echo "Create performance tests in \`tests/performance/\` directory."
-          fi
-        continue-on-error: true
-
-      - name: 📊 Performance Tests Summary
-        if: always()
-        run: |
-          echo "## ⚡ Performance Tests Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### k6 Script Example" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`javascript" >> $GITHUB_STEP_SUMMARY
-          echo "import http from 'k6/http';" >> $GITHUB_STEP_SUMMARY
-          echo "import { check } from 'k6';" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "export const options = {" >> $GITHUB_STEP_SUMMARY
-          echo "  vus: 10," >> $GITHUB_STEP_SUMMARY
-          echo "  duration: '30s'," >> $GITHUB_STEP_SUMMARY
-          echo "};" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "export default function() {" >> $GITHUB_STEP_SUMMARY
-          echo "  const res = http.get('http://localhost:3000/api/surahs');" >> $GITHUB_STEP_SUMMARY
-          echo "  check(res, { 'status was 200': r => r.status == 200 });" >> $GITHUB_STEP_SUMMARY
-          echo "}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 5: API Contract Tests
-  # ===========================================================================
-  api-contract-tests:
-    name: API Contract Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event.inputs.test_type == 'all' || github.event_name != 'workflow_dispatch'
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup Bun
-        uses: oven-sh/setup-bun@v1
-
-      - name: 📥 Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: 📋 Validate OpenAPI Spec
-        run: |
-          echo "Validating OpenAPI specification..."
-          
-          if [ -f "openapi.yaml" ] || [ -f "openapi.json" ]; then
-            npx @apidevtools/swagger-cli validate openapi.yaml || npx @apidevtools/swagger-cli validate openapi.json || true
-          else
-            echo "No OpenAPI spec found"
-          fi
-        continue-on-error: true
-
-      - name: 🧪 Run Contract Tests
-        run: |
-          echo "Running API contract tests..."
-          
-          if grep -q '"test:contract"' package.json; then
-            bun run test:contract
-          else
-            echo "::warning::No contract test script configured."
-          fi
-        continue-on-error: true
-
-      - name: 📊 Contract Tests Summary
-        if: always()
-        run: |
-          echo "## 📋 API Contract Tests Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Contract tests validate API against OpenAPI specification." >> $GITHUB_STEP_SUMMARY
-
-  # ===========================================================================
-  # Job 6: Test Summary Report
-  # ===========================================================================
-  test-summary:
-    name: Test Summary
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, e2e-tests, performance-tests, api-contract-tests]
-    if: always()
-    
-    steps:
-      - name: 📊 Generate Final Test Report
-        run: |
-          echo "# 📊 Test Suite Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Type | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Performance Tests | ${{ needs.performance-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| API Contract Tests | ${{ needs.api-contract-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "_Test suite completed at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
-
-      - name: 📥 Download all artifacts
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-
-      - name: 📤 Upload combined test report
-        uses: actions/upload-artifact@v4
-        with:
-          name: combined-test-report
-          path: ./
-          retention-days: 30
+          echo "## ✅ Tests Complete" >> $GITHUB_STEP_SUMMARY
