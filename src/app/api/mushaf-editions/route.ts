@@ -1,67 +1,44 @@
 import { NextResponse } from 'next/server';
 
-// Mock mushaf editions data
-// In production, this would come from a database
-const MUSHAF_EDITIONS = [
-  {
-    id: 'hafs',
-    nameArabic: 'مصحف حفص',
-    nameEnglish: 'Hafs Mushaf',
-    slug: 'hafs',
-    type: 'image',
-    description: 'Standard Hafs narration with scanned pages',
-    isDefault: true,
-    isActive: true,
-  },
-  {
-    id: 'warsh',
-    nameArabic: 'مصحف ورش',
-    nameEnglish: 'Warsh Mushaf',
-    slug: 'warsh',
-    type: 'image',
-    description: 'Warsh narration from Nafi',
-    isDefault: false,
-    isActive: true,
-  },
-  {
-    id: 'qaloon',
-    nameArabic: 'مصحف قالون',
-    nameEnglish: 'Qaloon Mushaf',
-    slug: 'qaloon',
-    type: 'image',
-    description: 'Qaloon narration from Nafi',
-    isDefault: false,
-    isActive: true,
-  },
-  {
-    id: 'indopak',
-    nameArabic: 'مصحف إنديباك',
-    nameEnglish: 'Indopak Mushaf',
-    slug: 'indopak',
-    type: 'ttf',
-    description: 'Indopak script with custom font',
-    isDefault: false,
-    isActive: true,
-    fontName: 'Indopak',
-  },
-  {
-    id: 'uthmani',
-    nameArabic: 'مصحف عثماني',
-    nameEnglish: 'Uthmani Mushaf',
-    slug: 'uthmani',
-    type: 'ttf',
-    description: 'Uthmani script with traditional font',
-    isDefault: false,
-    isActive: true,
-    fontName: 'Uthmani',
-  },
-];
+// Quran Service port
+const QURAN_SERVICE_PORT = 3001;
 
 export async function GET() {
   try {
+    // Call quran-service for mushaf editions
+    const response = await fetch(`http://localhost:${QURAN_SERVICE_PORT}/mushafs`);
+    const data = await response.json();
+
+    if (!data.success) {
+      return NextResponse.json(
+        { success: false, error: data.error || 'Failed to fetch mushaf editions' },
+        { status: 500 }
+      );
+    }
+
+    // Transform data to match expected format
+    const editions = (data.data || []).map((e: {
+      id: string;
+      name: string;
+      description: string | null;
+      style: string | null;
+      linesPerPage: number;
+      isDefault: boolean;
+    }) => ({
+      id: e.id,
+      nameArabic: e.name,
+      nameEnglish: e.name,
+      slug: e.id,
+      type: e.style || 'image',
+      description: e.description,
+      isDefault: e.isDefault,
+      isActive: true,
+      linesPerPage: e.linesPerPage,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: MUSHAF_EDITIONS.filter(e => e.isActive),
+      data: editions,
     });
   } catch (error) {
     console.error('Error fetching mushaf editions:', error);

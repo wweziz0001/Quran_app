@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+
+// Service ports
+const AUDIO_SERVICE_PORT = 3002;
+const QURAN_SERVICE_PORT = 3001;
 
 // GET - List recitations
 export async function GET(request: NextRequest) {
@@ -10,28 +13,22 @@ export async function GET(request: NextRequest) {
     const ayahId = searchParams.get('ayahId');
     const verseGlobal = searchParams.get('verseGlobal');
 
-    const where: Record<string, unknown> = { isActive: true };
-    if (surahId) where.surahId = parseInt(surahId, 10);
-    if (reciterId) where.reciterId = reciterId;
-
     // If looking for specific verse by global number
     if (verseGlobal && reciterId) {
       const globalNum = parseInt(verseGlobal, 10);
-      
-      // Find the ayah by global number
-      const ayah = await db.ayah.findFirst({
-        where: { ayahNumberGlobal: globalNum },
-        include: {
-          Surah: {
-            select: {
-              id: true,
-              number: true,
-              nameArabic: true,
-              nameEnglish: true,
-            },
-          },
-        },
-      });
+
+      // Find the ayah by global number from quran-service
+      const ayahResponse = await fetch(`http://localhost:${QURAN_SERVICE_PORT}/ayahs?limit=7000`);
+      const ayahData = await ayahResponse.json();
+
+      if (!ayahData.success) {
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to fetch ayahs',
+        }, { status: 500 });
+      }
+
+      const ayah = ayahData.data?.find((a: { ayahNumberGlobal: number }) => a.ayahNumberGlobal === globalNum);
 
       if (!ayah) {
         return NextResponse.json({
@@ -40,84 +37,38 @@ export async function GET(request: NextRequest) {
         }, { status: 404 });
       }
 
-      // Find recitation for this ayah
-      const recitationAyahs = await db.recitationAyah.findMany({
-        where: {
-          ayahId: ayah.id,
-          Recitation: { reciterId },
-        },
-        include: {
-          Recitation: {
-            include: {
-              Reciter: true,
-              Surah: true,
-            },
-          },
-        },
-      });
+      // Get recitations from audio-service
+      const recitationsResponse = await fetch(`http://localhost:${AUDIO_SERVICE_PORT}/recitations?reciterId=${reciterId}`);
+      const recitationsData = await recitationsResponse.json();
 
-      // If we have specific ayah timing data
-      if (recitationAyahs.length > 0) {
+      if (!recitationsData.success) {
         return NextResponse.json({
-          success: true,
-          data: recitationAyahs.map(ra => ({
-            id: ra.id,
-            reciterId: ra.Recitation.reciterId,
-            ayahId: ayah.id,
-            surahId: ayah.surahId,
-            verseGlobal: ayah.ayahNumberGlobal,
-            ayahNumber: ayah.ayahNumber,
-            audioUrl: ra.audioUrl || ra.Recitation.audioUrl,
-            audioFormat: ra.Recitation.format,
-            startTime: ra.startTime,
-            endTime: ra.endTime,
-            duration: ra.durationMs ? Math.floor(ra.durationMs / 1000) : null,
-            quality: ra.Recitation.bitrate >= 192 ? 'high' : 'medium',
-            isActive: true,
-            surahName: ayah.Surah.nameEnglish,
-            surahNameArabic: ayah.Surah.nameArabic,
-            reciter: ra.Recitation.Reciter,
-          })),
-        });
+          success: false,
+          error: 'Failed to fetch recitations',
+        }, { status: 500 });
       }
 
-      // Fallback: get the surah recitation and return with timing estimate
-      const surahRecitation = await db.recitation.findFirst({
-        where: {
-          reciterId,
-          surahId: ayah.surahId,
-          isActive: true,
-        },
-        include: {
-          Reciter: true,
-          Surah: true,
-          RecitationAyah: {
-            where: { ayahId: ayah.id },
-          },
-        },
-      });
+      // Find recitation for this surah
+      const recitation = recitationsData.data?.find((r: { surahId: number }) => r.surahId === ayah.surahId);
 
-      if (surahRecitation) {
-        const ra = surahRecitation.RecitationAyah[0];
+      if (recitation) {
         return NextResponse.json({
           success: true,
           data: [{
-            id: `${surahRecitation.id}-${ayah.id}`,
-            reciterId: surahRecitation.reciterId,
+            id: `${recitation.id}-${ayah.id}`,
+            reciterId: recitation.reciterId,
             ayahId: ayah.id,
             surahId: ayah.surahId,
             verseGlobal: ayah.ayahNumberGlobal,
             ayahNumber: ayah.ayahNumber,
-            audioUrl: ra?.audioUrl || surahRecitation.audioUrl,
-            audioFormat: surahRecitation.format,
-            startTime: ra?.startTime || 0,
-            endTime: ra?.endTime || 0,
-            duration: ra?.durationMs ? Math.floor(ra.durationMs / 1000) : null,
-            quality: surahRecitation.bitrate >= 192 ? 'high' : 'medium',
+            audioUrl: recitation.audioUrl,
+            audioFormat: recitation.format,
+            duration: recitation.durationSeconds,
+            quality: recitation.bitrate >= 192 ? 'high' : 'medium',
             isActive: true,
-            surahName: ayah.Surah.nameEnglish,
-            surahNameArabic: ayah.Surah.nameArabic,
-            reciter: surahRecitation.Reciter,
+            surahName: ayah.Surah?.nameEnglish,
+            surahNameArabic: ayah.Surah?.nameArabic,
+            reciter: recitation.Reciter,
           }],
         });
       }
@@ -128,228 +79,64 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // If looking for specific ayah recitations
-    if (ayahId && reciterId) {
-      const recitationAyahs = await db.recitationAyah.findMany({
-        where: {
-          ayahId: parseInt(ayahId, 10),
-          Recitation: { reciterId },
-        },
-        include: {
-          Recitation: {
-            include: {
-              Reciter: true,
-              Surah: true,
-            },
-          },
-          Ayah: true,
-        },
-      });
+    // Get recitations from audio-service
+    const params = new URLSearchParams();
+    if (reciterId) params.set('reciterId', reciterId);
+    params.set('limit', '200');
 
-      return NextResponse.json({
-        success: true,
-        data: recitationAyahs.map(ra => ({
-          id: ra.id,
-          reciterId: ra.Recitation.reciterId,
-          ayahId: ra.ayahId,
-          surahId: ra.Recitation.surahId,
-          audioUrl: ra.audioUrl || ra.Recitation.audioUrl,
-          audioFormat: ra.Recitation.format,
-          duration: ra.durationMs ? Math.floor(ra.durationMs / 1000) : null,
-          quality: ra.Recitation.bitrate >= 192 ? 'high' : 'medium',
-          isActive: true,
-          ayahNumber: ra.Ayah.ayahNumber,
-          surahName: ra.Recitation.Surah.nameEnglish,
-        })),
-      });
+    const response = await fetch(`http://localhost:${AUDIO_SERVICE_PORT}/recitations?${params.toString()}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      return NextResponse.json(
+        { success: false, error: data.error || 'Failed to fetch recitations' },
+        { status: 500 }
+      );
     }
 
-    // Get all recitation ayahs for a reciter (verse-level audio files)
-    if (reciterId) {
-      const recitationAyahs = await db.recitationAyah.findMany({
-        where: {
-          Recitation: { reciterId },
-        },
-        include: {
-          Recitation: {
-            include: {
-              Reciter: {
-                select: {
-                  id: true,
-                  nameArabic: true,
-                  nameEnglish: true,
-                  slug: true,
-                },
-              },
-              Surah: {
-                select: {
-                  id: true,
-                  number: true,
-                  nameArabic: true,
-                  nameEnglish: true,
-                },
-              },
-            },
-          },
-          Ayah: {
-            select: {
-              id: true,
-              ayahNumber: true,
-              ayahNumberGlobal: true,
-            },
-          },
-        },
-        orderBy: [{ Ayah: { ayahNumberGlobal: 'asc' } }],
-      });
+    // Transform data to match expected format
+    let recitations = (data.data || []).map((r: {
+      id: string;
+      surahId: number;
+      reciterId: string;
+      style: string | null;
+      bitrate: number;
+      format: string;
+      audioUrl: string | null;
+      durationSeconds: number | null;
+      fileSize: number | null;
+      isActive: boolean;
+      Reciter?: { id: string; nameArabic: string; nameEnglish: string; slug?: string };
+      _count?: { RecitationAyah: number };
+    }) => ({
+      id: r.id,
+      surahId: r.surahId,
+      reciterId: r.reciterId,
+      style: r.style,
+      bitrate: r.bitrate,
+      format: r.format,
+      audioUrl: r.audioUrl,
+      duration: r.durationSeconds,
+      fileSize: r.fileSize,
+      quality: r.bitrate >= 192 ? 'high' : 'medium',
+      isActive: r.isActive,
+      reciter: r.Reciter,
+      ayahCount: r._count?.RecitationAyah || 0,
+    }));
 
-      return NextResponse.json({
-        success: true,
-        data: recitationAyahs.map(ra => ({
-          id: ra.id,
-          recitationId: ra.recitationId,
-          reciterId: ra.Recitation.reciterId,
-          ayahId: ra.ayahId,
-          surahId: ra.Recitation.surahId,
-          ayahNumber: ra.Ayah.ayahNumber,
-          verseGlobal: ra.Ayah.ayahNumberGlobal,
-          audioUrl: ra.audioUrl,
-          audioFormat: ra.Recitation.format,
-          duration: ra.durationMs ? Math.floor(ra.durationMs / 1000) : null,
-          quality: ra.Recitation.bitrate >= 192 ? 'high' : 'medium',
-          isActive: true,
-          surahName: ra.Recitation.Surah.nameEnglish,
-          surahNameArabic: ra.Recitation.Surah.nameArabic,
-          reciter: ra.Recitation.Reciter,
-        })),
-      });
+    // Filter by surahId if provided
+    if (surahId) {
+      recitations = recitations.filter((r: { surahId: number }) => r.surahId === parseInt(surahId, 10));
     }
-
-    // Get all recitations (surah-level)
-    const recitations = await db.recitation.findMany({
-      where,
-      include: {
-        Reciter: {
-          select: {
-            id: true,
-            nameArabic: true,
-            nameEnglish: true,
-            slug: true,
-          },
-        },
-        Surah: {
-          select: {
-            id: true,
-            number: true,
-            nameArabic: true,
-            nameEnglish: true,
-          },
-        },
-        _count: {
-          select: { RecitationAyah: true },
-        },
-      },
-      orderBy: [{ Surah: { number: 'asc' } }],
-    });
 
     return NextResponse.json({
       success: true,
-      data: recitations.map(r => ({
-        id: r.id,
-        surahId: r.surahId,
-        reciterId: r.reciterId,
-        style: r.style,
-        bitrate: r.bitrate,
-        format: r.format,
-        audioUrl: r.audioUrl,
-        audioUrlHd: r.audioUrlHd,
-        duration: r.durationSeconds,
-        fileSize: r.fileSize,
-        quality: r.bitrate >= 192 ? 'high' : 'medium',
-        isActive: r.isActive,
-        surahName: r.Surah.nameEnglish,
-        reciter: r.Reciter,
-        surah: r.Surah,
-        ayahCount: r._count.RecitationAyah,
-      })),
+      data: recitations,
     });
   } catch (error) {
     console.error('Error fetching recitations:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch recitations' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Delete recitations or single audio file
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const reciterId = searchParams.get('reciterId');
-    const recitationId = searchParams.get('recitationId');
-    const recitationAyahId = searchParams.get('recitationAyahId');
-
-    // Delete single RecitationAyah (single audio file)
-    if (recitationAyahId) {
-      await db.recitationAyah.delete({
-        where: { id: recitationAyahId },
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: { deleted: 1 },
-      });
-    }
-
-    if (recitationId) {
-      // Delete single recitation (surah level)
-      await db.recitationAyah.deleteMany({
-        where: { recitationId },
-      });
-      
-      await db.recitation.delete({
-        where: { id: recitationId },
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: { deleted: 1 },
-      });
-    }
-
-    if (reciterId) {
-      // Delete all recitations for a reciter
-      const recitations = await db.recitation.findMany({
-        where: { reciterId },
-        select: { id: true },
-      });
-
-      const recitationIds = recitations.map(r => r.id);
-
-      // Delete all recitation ayahs first
-      await db.recitationAyah.deleteMany({
-        where: { recitationId: { in: recitationIds } },
-      });
-
-      // Delete all recitations
-      const result = await db.recitation.deleteMany({
-        where: { reciterId },
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: { deleted: result.count },
-      });
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'reciterId, recitationId, or recitationAyahId is required' },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error('Error deleting recitations:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete recitations' },
       { status: 500 }
     );
   }

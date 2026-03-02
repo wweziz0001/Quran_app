@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { hashPassword, generateToken } from '@/lib/auth';
+
+// Service port
+const USERS_SERVICE_PORT = 3005;
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,47 +22,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingUser = await db.user.findUnique({
-      where: { email },
+    // Call users-service for registration
+    const response = await fetch(`http://localhost:${USERS_SERVICE_PORT}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name }),
     });
 
-    if (existingUser) {
+    const data = await response.json();
+
+    if (!data.success) {
+      const status = data.error?.includes('already') ? 409 : 500;
       return NextResponse.json(
-        { success: false, error: 'Email already registered' },
-        { status: 409 }
+        { success: false, error: data.error || 'Failed to register' },
+        { status }
       );
     }
-
-    const hashedPassword = await hashPassword(password);
-
-    const user = await db.user.create({
-      data: {
-        email,
-        passwordHash: hashedPassword,
-        name: name || null,
-        role: 'USER',
-      },
-    });
-
-    // Create default user settings
-    await db.userSetting.create({
-      data: {
-        userId: user.id,
-      },
-    });
-
-    const token = generateToken(user.id);
 
     return NextResponse.json({
       success: true,
       data: {
-        token,
+        token: data.data.token,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          avatarUrl: user.avatarUrl,
+          id: data.data.user.id,
+          email: data.data.user.email,
+          name: data.data.user.name,
+          role: data.data.user.role,
         },
       },
     });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { verifyPassword, generateToken } from '@/lib/auth';
+
+// Service port
+const USERS_SERVICE_PORT = 3005;
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,50 +15,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await db.user.findUnique({
-      where: { email },
+    // Call users-service for login
+    const response = await fetch(`http://localhost:${USERS_SERVICE_PORT}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
 
-    if (!user) {
+    const data = await response.json();
+
+    if (!data.success) {
       return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
-        { status: 401 }
+        { success: false, error: data.error || 'Invalid credentials' },
+        { status: response.status === 401 ? 401 : 500 }
       );
     }
-
-    const isValid = await verifyPassword(password, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
-
-    if (!user.isActive) {
-      return NextResponse.json(
-        { success: false, error: 'Account is deactivated' },
-        { status: 403 }
-      );
-    }
-
-    // Update last login
-    await db.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const token = generateToken(user.id);
 
     return NextResponse.json({
       success: true,
       data: {
-        token,
+        token: data.data.token,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          avatarUrl: user.avatarUrl,
+          id: data.data.user.id,
+          email: data.data.user.email,
+          name: data.data.user.name,
+          role: data.data.user.role,
         },
       },
     });

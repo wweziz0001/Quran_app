@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+
+// Quran Service port
+const QURAN_SERVICE_PORT = 3001;
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,29 +18,27 @@ export async function GET(request: NextRequest) {
 
     const page = parseInt(pageNumber, 10);
 
-    // Get all ayahs on this page with their line/bound information
-    // In production, this would come from a MushafAyahLine table
-    // For now, we return ayahs from the database without line bounds
-    
-    const ayahs = await db.ayah.findMany({
-      where: { pageNumber: page },
-      orderBy: { ayahNumberGlobal: 'asc' },
-      select: {
-        id: true,
-        ayahNumber: true,
-        surah: {
-          select: {
-            number: true,
-          },
-        },
-      },
-    });
+    // Call quran-service for ayahs by page
+    const response = await fetch(`http://localhost:${QURAN_SERVICE_PORT}/ayahs?page=${page}&limit=50`);
+    const data = await response.json();
+
+    if (!data.success) {
+      return NextResponse.json(
+        { success: false, error: data.error || 'Failed to fetch mushaf ayahs' },
+        { status: 500 }
+      );
+    }
+
+    // Filter ayahs by page number
+    const ayahs = (data.data || []).filter(
+      (a: { pageNumber: number | null }) => a.pageNumber === page
+    );
 
     // Transform data for the mushaf viewer
     // In production, this would include actual line bounds from the MushafAyahLine table
-    const mushafAyahs = ayahs.map((ayah, index) => ({
+    const mushafAyahs = ayahs.map((ayah: { id: number; ayahNumber: number; Surah?: { number: number } }, index: number) => ({
       id: String(ayah.id),
-      surahNumber: ayah.surah.number,
+      surahNumber: ayah.Surah?.number || 1,
       ayahNumber: ayah.ayahNumber,
       lines: [
         {
