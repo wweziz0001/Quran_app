@@ -31,6 +31,8 @@ export default defineConfig({
       'coverage',
       'services/**',
       'mini-services/**',
+      'tests/e2e/**',  // E2E tests are run with Playwright, not Vitest
+      '**/*.spec.ts',  // Playwright spec files
     ],
     
     // Coverage configuration
