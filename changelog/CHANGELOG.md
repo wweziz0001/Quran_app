@@ -55,6 +55,36 @@
 
 ---
 
+## [2.0.1] - 2025-03-02
+
+### 🔧 الإصلاحات
+
+#### إصلاح تعريف حقول ID و updatedAt في نماذج المصاحف
+
+**المشكلة:**
+حقول `id` في نماذج `ImageMushafEdition` و `TtfMushafEdition` لم يكن لديها قيمة افتراضية، وحقل `updatedAt` لم يكن يستخدم `@updatedAt` التلقائي.
+
+**السبب:**
+نسيان إضافة `@default(cuid())` للـ ID و `@updatedAt` للحقل المحدث.
+
+**الحل:**
+1. إضافة `@default(cuid())` إلى حقل `id` في `ImageMushafEdition`
+2. إضافة `@updatedAt` إلى حقل `updatedAt` في `ImageMushafEdition`
+3. إضافة `@default(cuid())` إلى حقل `id` في `TtfMushafEdition`
+4. إضافة `@updatedAt` إلى حقل `updatedAt` في `TtfMushafEdition`
+
+**الملفات المتأثرة:**
+- `prisma/schema.prisma` - تحديث نماذج ImageMushafEdition و TtfMushafEdition
+
+**النتيجة:**
+- ✅ حقول ID تولد تلقائياً باستخدام cuid() عند إنشاء سجلات جديدة
+- ✅ حقول updatedAt تحدث تلقائياً عند تعديل السجلات
+- ✅ تحسين توافق قاعدة البيانات مع الـ ORM
+
+**التفاصيل:** انظر `changelog/v2.0.1.md`
+
+---
+
 ## [1.9.0] - 2025-01-XX
 
 ### ✨ الميزات الجديدة - Stage 5: Audio Streaming Scaffold
