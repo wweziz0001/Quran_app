@@ -18,6 +18,48 @@
 
 ---
 
+## [1.7.0] - 2025-01-18
+
+### ✨ الميزات الجديدة - Stage 3: Elasticsearch Arabic Analyzer Scaffold
+
+#### محرك بحث عربي متقدم للقرآن الكريم
+
+تم إنشاء نظام بحث متكامل يدعم:
+
+| الميزة | الوصف |
+|--------|-------|
+| **Arabic Normalization** | تطبيع الحروف العربية (أ، إ، آ → ا) |
+| **Diacritics Handling** | إزالة التشكيل تلقائياً للبحث |
+| **Synonyms Support** | دعم المرادفات (118+ مرادف قرآني) |
+| **Autocomplete** | اقتراحات تلقائية أثناء الكتابة |
+| **Fuzzy Search** | بحث تقريبي للكلمات غير الدقيقة |
+| **Reference Search** | البحث بالمرجع (2:255، البقرة:255) |
+
+#### الملفات الجديدة
+
+**مجلد elastic/ (12 ملف):**
+- `docker-compose.yml` - Elasticsearch 8.11 + Kibana
+- `quran-index.json` - تكامل الفهرس الكامل
+- `arabic-analyzer.json` - المحلل العربي المخصص
+- `synonyms.txt` - 118+ مرادف قرآني
+- `stopwords_ar.txt` - كلمات التوقف العربية
+- `scripts/` - 4 سكربتات (create-index, index-ayahs, reindex, test-search)
+
+**مجلد src/services/ (4 ملفات):**
+- `arabic-normalizer.ts` - تطبيع النصوص العربية (~350 سطر)
+- `elasticsearch.ts` - عميل Elasticsearch (~400 سطر)
+- `search-service.ts` - خدمة البحث المتقدمة (~300 سطر)
+- `autocomplete.ts` - خدمة الاقتراحات (~250 سطر)
+
+**API Endpoints:**
+- `src/app/api/search/route.ts` - البحث الرئيسي (GET/POST)
+- `src/app/api/search/suggest/route.ts` - اقتراحات Autocomplete
+- `src/app/api/search/advanced/route.ts` - البحث المتقدم مع فلاتر
+
+**التفاصيل:** انظر `changelog/v1.7.0.md`
+
+---
+
 ## [1.6.1] - 2025-01-17
 
 ### 🔧 الإصلاحات

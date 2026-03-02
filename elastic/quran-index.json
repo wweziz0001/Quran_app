@@ -1,0 +1,256 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "char_filter": {
+        "arabic_normalizer": {
+          "type": "mapping",
+          "mappings": [
+            "أ => ا",
+            "إ => ا",
+            "آ => ا",
+            "ٱ => ا",
+            "ى => ي",
+            "ة => ه",
+            "ۀ => ه"
+          ]
+        },
+        "diacritics_remover": {
+          "type": "mapping",
+          "mappings": [
+            "َ=>",
+            "ُ=>",
+            "ِ=>",
+            "ً=>",
+            "ٌ=>",
+            "ٍ=>",
+            "ّ=>",
+            "ْ=>",
+            "ٰ=>",
+            "ۡ=>"
+          ]
+        }
+      },
+      "filter": {
+        "arabic_stop": {
+          "type": "stop",
+          "stopwords_path": "stopwords_ar.txt"
+        },
+        "arabic_stemmer": {
+          "type": "stemmer",
+          "language": "arabic"
+        },
+        "arabic_synonyms": {
+          "type": "synonym",
+          "synonyms_path": "synonyms.txt"
+        },
+        "arabic_synonyms_graph": {
+          "type": "synonym_graph",
+          "synonyms_path": "synonyms.txt"
+        },
+        "word_delimiter": {
+          "type": "word_delimiter",
+          "split_on_numerics": false,
+          "preserve_original": true
+        },
+        "unique_filter": {
+          "type": "unique"
+        }
+      },
+      "tokenizer": {
+        "arabic_tokenizer": {
+          "type": "pattern",
+          "pattern": "\\s+",
+          "lowercase": true
+        },
+        "ngram_tokenizer": {
+          "type": "ngram",
+          "min_gram": 2,
+          "max_gram": 3,
+          "token_chars": ["letter", "digit"]
+        },
+        "edge_ngram_tokenizer": {
+          "type": "edge_ngram",
+          "min_gram": 2,
+          "max_gram": 10,
+          "token_chars": ["letter"]
+        }
+      },
+      "analyzer": {
+        "arabic_analyzer": {
+          "type": "custom",
+          "char_filter": ["arabic_normalizer", "diacritics_remover"],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "decimal_digit",
+            "arabic_stop",
+            "arabic_normalization",
+            "arabic_stemmer",
+            "arabic_synonyms"
+          ]
+        },
+        "arabic_search_analyzer": {
+          "type": "custom",
+          "char_filter": ["arabic_normalizer", "diacritics_remover"],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "decimal_digit",
+            "arabic_stop",
+            "arabic_normalization",
+            "arabic_stemmer",
+            "arabic_synonyms_graph"
+          ]
+        },
+        "arabic_exact_analyzer": {
+          "type": "custom",
+          "char_filter": ["diacritics_remover"],
+          "tokenizer": "standard",
+          "filter": ["lowercase"]
+        },
+        "autocomplete_analyzer": {
+          "type": "custom",
+          "tokenizer": "edge_ngram_tokenizer",
+          "filter": ["lowercase", "arabic_normalization"]
+        },
+        "autocomplete_search_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "arabic_normalization"]
+        },
+        "ngram_analyzer": {
+          "type": "custom",
+          "tokenizer": "ngram_tokenizer",
+          "filter": ["lowercase"]
+        }
+      },
+      "normalizer": {
+        "arabic_normalizer": {
+          "type": "custom",
+          "char_filter": ["arabic_normalizer", "diacritics_remover"],
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "integer"
+      },
+      "surahId": {
+        "type": "integer"
+      },
+      "surahName": {
+        "type": "keyword"
+      },
+      "surahNameArabic": {
+        "type": "text",
+        "analyzer": "arabic_analyzer",
+        "search_analyzer": "arabic_search_analyzer",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "normalized": {
+            "type": "text",
+            "analyzer": "arabic_exact_analyzer"
+          }
+        }
+      },
+      "ayahNumber": {
+        "type": "integer"
+      },
+      "ayahNumberGlobal": {
+        "type": "integer"
+      },
+      "textArabic": {
+        "type": "text",
+        "analyzer": "arabic_analyzer",
+        "search_analyzer": "arabic_search_analyzer",
+        "term_vector": "with_positions_offsets",
+        "fields": {
+          "exact": {
+            "type": "text",
+            "analyzer": "arabic_exact_analyzer"
+          },
+          "normalized": {
+            "type": "text",
+            "analyzer": "arabic_normalizer"
+          },
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "autocomplete_analyzer",
+            "search_analyzer": "autocomplete_search_analyzer"
+          },
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "textUthmani": {
+        "type": "text",
+        "analyzer": "arabic_exact_analyzer",
+        "fields": {
+          "normalized": {
+            "type": "text",
+            "analyzer": "arabic_analyzer"
+          }
+        }
+      },
+      "textIndopak": {
+        "type": "text",
+        "analyzer": "arabic_analyzer"
+      },
+      "pageNumber": {
+        "type": "integer"
+      },
+      "juzNumber": {
+        "type": "integer"
+      },
+      "hizbNumber": {
+        "type": "integer"
+      },
+      "sajdah": {
+        "type": "boolean"
+      },
+      "words": {
+        "type": "text",
+        "analyzer": "arabic_analyzer"
+      },
+      "roots": {
+        "type": "keyword"
+      },
+      "topics": {
+        "type": "keyword"
+      },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "index": true,
+        "similarity": "cosine"
+      },
+      "translation": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "translationSource": {
+        "type": "keyword"
+      },
+      "tafsirText": {
+        "type": "text",
+        "analyzer": "arabic_analyzer"
+      },
+      "tafsirSource": {
+        "type": "keyword"
+      },
+      "createdAt": {
+        "type": "date"
+      },
+      "updatedAt": {
+        "type": "date"
+      }
+    }
+  }
+}

@@ -1,29 +1,115 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  removeDiacritics,
+  normalizeForSearch,
+  tokenize,
+  highlightMatch,
+  parseReference,
+} from '@/services/arabic-normalizer';
 
-// GET - Traditional text search
+// Types for search results
+interface AyahResult {
+  id: number;
+  surahId: number;
+  surahNumber: number;
+  surahNameArabic: string;
+  surahNameEnglish: string;
+  ayahNumber: number;
+  ayahNumberGlobal: number;
+  textArabic: string;
+  textUthmani: string | null;
+  pageNumber: number | null;
+  juzNumber: number | null;
+  hizbNumber: number | null;
+  sajdah: boolean;
+  score: number;
+  highlighted?: string;
+}
+
+interface SearchMeta {
+  query: string;
+  normalizedQuery: string;
+  type: string;
+  took: number;
+  method: string;
+  fallback?: boolean;
+}
+
+/**
+ * GET /api/search
+ * 
+ * Main search endpoint for Quran ayahs
+ * 
+ * Query Parameters:
+ * - q: Search query (required, min 2 characters)
+ * - type: 'all' | 'surah' | 'ayah' (default: 'all')
+ * - page: Page number for pagination (default: 1)
+ * - limit: Results per page (default: 20)
+ * - surahId: Filter by surah
+ * - juz: Filter by juz
+ * - highlight: Enable highlighting (default: true)
+ */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q');
-    const type = searchParams.get('type') || 'all'; // all, surah, ayah
+    const type = searchParams.get('type') || 'all';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const surahId = searchParams.get('surahId');
+    const juz = searchParams.get('juz');
+    const highlight = searchParams.get('highlight') !== 'false';
 
+    // Validate query
     if (!q || q.length < 2) {
-      return NextResponse.json(
-        { success: false, error: 'Query must be at least 2 characters' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Query must be at least 2 characters',
+      }, { status: 400 });
     }
 
+    // Check for reference search (e.g., "2:255" or "البقرة:255")
+    const reference = parseReference(q);
+    if (reference) {
+      return handleReferenceSearch(reference, startTime);
+    }
+
+    // Normalize query for Arabic search
+    const normalizedQuery = normalizeForSearch(q);
+    const exactQuery = removeDiacritics(q);
+
+    // Build where clause
+    const whereClause: Record<string, unknown> = {
+      OR: [
+        { textArabic: { contains: exactQuery } },
+        { textUthmani: { contains: exactQuery } },
+        // Also search in normalized form
+        ...(normalizedQuery !== exactQuery ? [
+          { textArabic: { contains: normalizedQuery } },
+        ] : []),
+      ],
+    };
+
+    // Add filters
+    if (surahId) {
+      whereClause.surahId = parseInt(surahId);
+    }
+    if (juz) {
+      whereClause.juzNumber = parseInt(juz);
+    }
+
+    // Search surahs if type is 'all' or 'surah'
     const results: {
       surahs: unknown[];
-      ayahs: unknown[];
+      ayahs: AyahResult[];
     } = {
       surahs: [],
       ayahs: [],
     };
 
-    // Search surahs
     if (type === 'all' || type === 'surah') {
       const surahs = await db.surah.findMany({
         where: {
@@ -31,6 +117,7 @@ export async function GET(request: NextRequest) {
             { nameArabic: { contains: q } },
             { nameEnglish: { contains: q } },
             { nameTransliteration: { contains: q } },
+            { slug: { contains: normalizedQuery.replace(/\s+/g, '-') } },
           ],
         },
         take: 10,
@@ -38,17 +125,22 @@ export async function GET(request: NextRequest) {
       results.surahs = surahs;
     }
 
-    // Search ayahs
+    // Search ayahs if type is 'all' or 'ayah'
     if (type === 'all' || type === 'ayah') {
+      // Get total count
+      const total = await db.ayah.count({ where: whereClause });
+
+      // Get ayahs with pagination
       const ayahs = await db.ayah.findMany({
-        where: {
-          OR: [
-            { textArabic: { contains: q } },
-            { textUthmani: { contains: q } },
-          ],
-        },
+        where: whereClause,
+        orderBy: [
+          { surahId: 'asc' },
+          { ayahNumber: 'asc' },
+        ],
+        skip: (page - 1) * limit,
+        take: limit,
         include: {
-          surah: {
+          Surah: {
             select: {
               id: true,
               number: true,
@@ -57,47 +149,246 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        take: 20,
       });
-      results.ayahs = ayahs;
+
+      // Transform results
+      results.ayahs = ayahs.map((ayah, index) => ({
+        id: ayah.id,
+        surahId: ayah.surahId,
+        surahNumber: ayah.Surah?.number || 0,
+        surahNameArabic: ayah.Surah?.nameArabic || '',
+        surahNameEnglish: ayah.Surah?.nameEnglish || '',
+        ayahNumber: ayah.ayahNumber,
+        ayahNumberGlobal: ayah.ayahNumberGlobal,
+        textArabic: ayah.textArabic,
+        textUthmani: ayah.textUthmani,
+        pageNumber: ayah.pageNumber,
+        juzNumber: ayah.juzNumber,
+        hizbNumber: ayah.hizbNumber,
+        sajdah: ayah.sajdah,
+        score: 1 - (index * 0.01), // Simple relevance scoring
+        highlighted: highlight
+          ? highlightMatch(ayah.textArabic, exactQuery, '<mark>', '</mark>')
+          : undefined,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        data: results,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+        meta: {
+          query: q,
+          normalizedQuery,
+          type,
+          took: Date.now() - startTime,
+          method: 'database',
+        } as SearchMeta,
+      });
     }
 
     return NextResponse.json({
       success: true,
       data: results,
+      meta: {
+        query: q,
+        normalizedQuery,
+        type,
+        took: Date.now() - startTime,
+        method: 'database',
+      } as SearchMeta,
     });
   } catch (error) {
-    console.error('Error searching:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to search' },
-      { status: 500 }
-    );
+    console.error('Search error:', error);
+
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to perform search',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
   }
 }
 
-// POST - Semantic/AI-powered search (returns verse results)
+/**
+ * Handle reference search (e.g., "2:255" or "البقرة:255")
+ */
+async function handleReferenceSearch(
+  reference: { surah: number | string; ayah: number },
+  startTime: number
+): Promise<NextResponse> {
+  let surahId: number;
+
+  if (typeof reference.surah === 'number') {
+    surahId = reference.surah;
+  } else {
+    // Search by surah name
+    const surah = await db.surah.findFirst({
+      where: {
+        OR: [
+          { nameArabic: { contains: reference.surah } },
+          { nameEnglish: { contains: reference.surah } },
+          { slug: reference.surah.replace(/\s+/g, '-') },
+        ],
+      },
+    });
+
+    if (!surah) {
+      return NextResponse.json({
+        success: false,
+        error: `Surah "${reference.surah}" not found`,
+      }, { status: 404 });
+    }
+    surahId = surah.id;
+  }
+
+  const ayah = await db.ayah.findFirst({
+    where: {
+      surahId,
+      ayahNumber: reference.ayah,
+    },
+    include: {
+      Surah: {
+        select: {
+          id: true,
+          number: true,
+          nameArabic: true,
+          nameEnglish: true,
+        },
+      },
+      TafsirEntry: {
+        take: 1,
+        include: {
+          TafsirSource: {
+            select: { name: true },
+          },
+        },
+      },
+      TranslationEntry: {
+        where: {
+          TranslationSource: { languageCode: 'en-sahih' },
+        },
+        take: 1,
+        include: {
+          TranslationSource: {
+            select: { name: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!ayah) {
+    return NextResponse.json({
+      success: false,
+      error: `Ayah ${reference.surah}:${reference.ayah} not found`,
+    }, { status: 404 });
+  }
+
+  const result: AyahResult = {
+    id: ayah.id,
+    surahId: ayah.surahId,
+    surahNumber: ayah.Surah?.number || 0,
+    surahNameArabic: ayah.Surah?.nameArabic || '',
+    surahNameEnglish: ayah.Surah?.nameEnglish || '',
+    ayahNumber: ayah.ayahNumber,
+    ayahNumberGlobal: ayah.ayahNumberGlobal,
+    textArabic: ayah.textArabic,
+    textUthmani: ayah.textUthmani,
+    pageNumber: ayah.pageNumber,
+    juzNumber: ayah.juzNumber,
+    hizbNumber: ayah.hizbNumber,
+    sajdah: ayah.sajdah,
+    score: 1,
+  };
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      ayah: result,
+      translation: ayah.TranslationEntry[0]
+        ? {
+            text: ayah.TranslationEntry[0].text,
+            source: ayah.TranslationEntry[0].TranslationSource?.name,
+          }
+        : null,
+      tafsir: ayah.TafsirEntry[0]
+        ? {
+            text: ayah.TafsirEntry[0].textArabic,
+            source: ayah.TafsirEntry[0].TafsirSource?.name,
+          }
+        : null,
+    },
+    meta: {
+      query: `${reference.surah}:${reference.ayah}`,
+      normalizedQuery: '',
+      type: 'reference',
+      took: Date.now() - startTime,
+      method: 'reference',
+    } as SearchMeta,
+  });
+}
+
+/**
+ * POST /api/search
+ * 
+ * Semantic/AI-powered search endpoint
+ * 
+ * Request Body:
+ * - query: Search query
+ * - limit: Number of results (default: 20)
+ * - includeTranslations: Include English translations (default: false)
+ * - includeTafsir: Include tafsir (default: false)
+ * - fuzzy: Enable fuzzy matching (default: false)
+ */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body = await request.json();
-    const { query, limit = 20 } = body;
+    const {
+      query,
+      limit = 20,
+      includeTranslations = false,
+      includeTafsir = false,
+      fuzzy = false,
+    } = body;
 
+    // Validate query
     if (!query || query.length < 2) {
-      return NextResponse.json(
-        { success: false, error: 'Query must be at least 2 characters' },
-        { status: 400 }
+      return NextResponse.json({
+        success: false,
+        error: 'Query must be at least 2 characters',
+      }, { status: 400 });
+    }
+
+    // Normalize query
+    const normalizedQuery = normalizeForSearch(query);
+    const exactQuery = removeDiacritics(query);
+
+    // Build search conditions
+    const searchConditions = [
+      { textArabic: { contains: exactQuery } },
+      { textUthmani: { contains: exactQuery } },
+    ];
+
+    // Add fuzzy search conditions if enabled
+    if (fuzzy && normalizedQuery !== exactQuery) {
+      searchConditions.push(
+        { textArabic: { contains: normalizedQuery } }
       );
     }
 
-    // Search in Arabic text
+    // Search ayahs
     const ayahs = await db.ayah.findMany({
       where: {
-        OR: [
-          { textArabic: { contains: query } },
-          { textUthmani: { contains: query } },
-        ],
+        OR: searchConditions,
       },
       include: {
-        surah: {
+        Surah: {
           select: {
             id: true,
             number: true,
@@ -105,26 +396,36 @@ export async function POST(request: NextRequest) {
             nameEnglish: true,
           },
         },
-        translationEntries: {
-          where: {
-            source: { languageCode: 'en-sahih' },
-          },
-          select: {
-            text: true,
-            source: {
-              select: {
-                name: true,
-                languageCode: true,
+        ...(includeTranslations && {
+          TranslationEntry: {
+            where: {
+              TranslationSource: { languageCode: 'en-sahih' },
+            },
+            select: {
+              text: true,
+              TranslationSource: {
+                select: { name: true, languageCode: true },
               },
             },
+            take: 1,
           },
-          take: 1,
-        },
+        }),
+        ...(includeTafsir && {
+          TafsirEntry: {
+            select: {
+              textArabic: true,
+              TafsirSource: {
+                select: { name: true },
+              },
+            },
+            take: 1,
+          },
+        }),
       },
       take: limit,
     });
 
-    // Transform results for the semantic search component
+    // Transform results
     const results = ayahs.map((ayah) => ({
       verse: {
         id: String(ayah.id),
@@ -138,27 +439,41 @@ export async function POST(request: NextRequest) {
         hizbNumber: ayah.hizbNumber,
         rubNumber: ayah.rubNumber,
         sajdah: ayah.sajdah,
-        surah: ayah.surah,
-        translation: ayah.translationEntries[0]
+        surah: ayah.Surah,
+        translation: ayah.TranslationEntry?.[0]
           ? {
-              text: ayah.translationEntries[0].text,
-              source: ayah.translationEntries[0].source,
+              text: ayah.TranslationEntry[0].text,
+              source: ayah.TranslationEntry[0].TranslationSource,
+            }
+          : null,
+        tafsir: ayah.TafsirEntry?.[0]
+          ? {
+              text: ayah.TafsirEntry[0].textArabic,
+              source: ayah.TafsirEntry[0].TafsirSource,
             }
           : null,
       },
-      score: 1.0, // In production, use actual similarity score from AI
-      highlights: [], // In production, extract highlighted segments
+      score: 1.0,
+      highlights: [],
     }));
 
     return NextResponse.json({
       success: true,
       data: results,
+      meta: {
+        query,
+        normalizedQuery,
+        type: 'semantic',
+        took: Date.now() - startTime,
+        method: 'database',
+      },
     });
   } catch (error) {
-    console.error('Error in semantic search:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to perform search' },
-      { status: 500 }
-    );
+    console.error('Semantic search error:', error);
+
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to perform search',
+    }, { status: 500 });
   }
 }

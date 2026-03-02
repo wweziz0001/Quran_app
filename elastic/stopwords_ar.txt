@@ -1,0 +1,189 @@
+# Arabic Stopwords for Quran Search
+# Common Arabic words that should be filtered out in search
+# Format: one word per line
+
+# Prepositions
+في
+من
+على
+إلى
+عن
+مع
+بين
+عند
+حول
+خلف
+أمام
+فوق
+تحت
+يمين
+يسار
+قبل
+بعد
+منذ
+خلال
+حتى
+إلى
+علي
+من
+
+# Pronouns
+هو
+هي
+هم
+هن
+أنت
+أنتِ
+أنتما
+أنتم
+أنتن
+أنا
+نحن
+هذا
+هذه
+ذلك
+تلك
+هؤلاء
+أولئك
+الذي
+التي
+الذين
+اللاتي
+اللواتي
+اللائي
+اللاتي
+
+# Demonstratives
+هذا
+هذه
+ذلك
+تلك
+هؤلاء
+أولئك
+هنا
+هناك
+حيث
+
+# Conjunctions
+و
+ف
+ثم
+أو
+أم
+بل
+لكن
+حتى
+إذا
+إذ
+لو
+لولا
+كي
+أن
+إن
+
+# Particles
+لا
+لم
+لن
+قد
+كان
+كانت
+كانوا
+يكون
+تكون
+يكونون
+
+# Question words
+ما
+من
+أين
+كيف
+متى
+لماذا
+كم
+أي
+هل
+
+# Negation
+لا
+لم
+لن
+ما
+ليس
+ليست
+ليسوا
+
+# Common verbs
+كان
+كانت
+كانوا
+يكون
+تكون
+يكونون
+كانتا
+كنتم
+كنتن
+
+# Relative pronouns
+الذي
+التي
+الذين
+اللائي
+اللاتي
+اللواتي
+من
+ما
+
+# Other common words
+كل
+بعض
+كثير
+قليل
+جميع
+سائر
+غير
+سوى
+إلا
+عدا
+حاشا
+خلا
+فقط
+أيضا
+أيضًا
+
+# Time expressions
+يوم
+يومًا
+اليوم
+أمس
+غدًا
+الآن
+صباح
+مساء
+ليل
+نهار
+ساعة
+دقيقة
+ثانية
+
+# Numbers (written)
+واحد
+اثنان
+ثلاثة
+أربعة
+خمسة
+ستة
+سبعة
+ثمانية
+تسعة
+عشرة
+مائة
+ألف
+مليون
+
+# Quran-specific common words (not removed in some contexts)
+# These are kept as they carry meaning in Quran context
+# رب
+# ربك
+# ربنا
+# ربهم
