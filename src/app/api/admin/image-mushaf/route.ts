@@ -16,8 +16,7 @@ export async function GET() {
             ImageMushafPage: true, 
             ImageMushafAyah: true, 
             ImageMushafSurah: true,
-            ImageMushafWord: true,
-            ImageMushafLine: true,
+            MushafDiscriminator: true,
           },
         },
       },
@@ -40,8 +39,7 @@ export async function GET() {
         pages: edition._count.ImageMushafPage,
         ayat: edition._count.ImageMushafAyah,
         surahs: edition._count.ImageMushafSurah,
-        words: edition._count.ImageMushafWord,
-        lines: edition._count.ImageMushafLine,
+        discriminators: edition._count.MushafDiscriminator,
       },
     }));
 

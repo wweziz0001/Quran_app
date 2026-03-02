@@ -18,6 +18,31 @@
 
 ---
 
+## [1.8.1] - 2025-01-XX
+
+### 🔧 الإصلاحات
+
+#### إصلاح خطأ Prisma في استعلامات Mushaf
+
+**المشكلة:**
+خطأ `Unknown field ImageMushafWord for select statement` عند الوصول إلى `/api/admin/image-mushaf` و `/api/admin/ttf-mushaf`.
+
+**السبب:**
+محاولة عد `ImageMushafWord` و `TtfMushafWord` من Edition بينما هي مرتبطة بـ Ayah وليست Edition مباشرة.
+
+**الحل:**
+إزالة الحقول غير الموجودة من استعلامات `_count`:
+- `ImageMushafWord` و `ImageMushafLine` من `image-mushaf/route.ts`
+- `TtfMushafWord` من `ttf-mushaf/route.ts`
+
+**الملفات المتأثرة:**
+- `src/app/api/admin/image-mushaf/route.ts`
+- `src/app/api/admin/ttf-mushaf/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.8.1.md`
+
+---
+
 ## [1.8.0] - 2025-01-18
 
 ### ✨ الميزات الجديدة - Stage 4: AI Embeddings Scaffold

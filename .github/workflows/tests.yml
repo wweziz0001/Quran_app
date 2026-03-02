@@ -114,7 +114,7 @@ jobs:
 
       - name: 📤 Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: always()
+        if: always() && hashFiles('coverage/lcov.info') != ''
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
@@ -122,26 +122,18 @@ jobs:
           name: unit-tests-coverage
           fail_ci_if_error: false
         continue-on-error: true
-
-      - name: 📊 Generate Test Report
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Unit Tests Report
-          path: 'test-results/**/*.xml'
-          reporter: jest-junit
-          fail-on-error: false
-        continue-on-error: true
+        timeout-minutes: 2
 
       - name: 📤 Upload test artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('coverage/*') != ''
         with:
           name: unit-test-results
           path: |
             coverage/
             test-results/
           retention-days: 30
+          if-no-files-found: ignore
 
       - name: 📊 Test Summary
         if: always()

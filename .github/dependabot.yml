@@ -9,11 +9,6 @@
 
 version: 2
 
-registries:
-  npm-registry:
-    type: npm-registry
-    url: https://registry.npmjs.org
-
 updates:
   # ===========================================================================
   # Main Application Dependencies (bun/package.json)
