@@ -3,10 +3,12 @@ import { db } from '@/lib/db';
 import {
   removeDiacritics,
   normalizeForSearch,
+  normalizeArabic,
   tokenize,
   highlightMatch,
   parseReference,
 } from '@/services/arabic-normalizer';
+import { Prisma } from '@prisma/client';
 
 // Types for search results
 interface AyahResult {
@@ -81,125 +83,100 @@ export async function GET(request: NextRequest) {
     const normalizedQuery = normalizeForSearch(q);
     const exactQuery = removeDiacritics(q);
 
-    // Build where clause
-    const whereClause: Record<string, unknown> = {
-      OR: [
-        { textArabic: { contains: exactQuery } },
-        { textUthmani: { contains: exactQuery } },
-        // Also search in normalized form
-        ...(normalizedQuery !== exactQuery ? [
-          { textArabic: { contains: normalizedQuery } },
-        ] : []),
-      ],
-    };
-
-    // Add filters
-    if (surahId) {
-      whereClause.surahId = parseInt(surahId);
-    }
-    if (juz) {
-      whereClause.juzNumber = parseInt(juz);
-    }
-
-    // Search surahs if type is 'all' or 'surah'
+    // Use raw SQL for better Arabic search support
+    // SQLite doesn't support advanced text search, so we use a multi-step approach
+    
+    // Build where clause using raw SQL for normalized search
+    // We'll search using multiple conditions
+    const searchTerms = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+    
+    // Get all ayahs and filter in memory (for small datasets this is acceptable)
+    // For production with Elasticsearch, this would be handled by the search engine
+    const allAyahs = await db.ayah.findMany({
+      where: {
+        ...(surahId && { surahId: parseInt(surahId) }),
+        ...(juz && { juzNumber: parseInt(juz) }),
+      },
+      select: {
+        id: true,
+        surahId: true,
+        ayahNumber: true,
+        ayahNumberGlobal: true,
+        textArabic: true,
+        textUthmani: true,
+        pageNumber: true,
+        juzNumber: true,
+        hizbNumber: true,
+        sajdah: true,
+      },
+    });
+    
+    // Filter ayahs that match the normalized query
+    const matchingAyahs = allAyahs.filter(ayah => {
+      const normalizedText = normalizeForSearch(ayah.textArabic || '');
+      const normalizedUthmani = normalizeForSearch(ayah.textUthmani || '');
+      
+      // Check if all search terms are found
+      return searchTerms.every(term => 
+        normalizedText.includes(term) || normalizedUthmani.includes(term)
+      );
+    });
+    
+    const total = matchingAyahs.length;
+    
+    // Paginate results
+    const paginatedAyahs = matchingAyahs.slice((page - 1) * limit, page * limit);
+    
+    // Get surah info for the paginated results
+    const surahIds = [...new Set(paginatedAyahs.map(a => a.surahId))];
+    const surahs = await db.surah.findMany({
+      where: { id: { in: surahIds } },
+      select: { id: true, number: true, nameArabic: true, nameEnglish: true },
+    });
+    const surahMap = new Map(surahs.map(s => [s.id, s]));
+    
+    // Build results object
     const results: {
       surahs: unknown[];
       ayahs: AyahResult[];
     } = {
       surahs: [],
-      ayahs: [],
-    };
-
-    if (type === 'all' || type === 'surah') {
-      const surahs = await db.surah.findMany({
-        where: {
-          OR: [
-            { nameArabic: { contains: q } },
-            { nameEnglish: { contains: q } },
-            { nameTransliteration: { contains: q } },
-            { slug: { contains: normalizedQuery.replace(/\s+/g, '-') } },
-          ],
-        },
-        take: 10,
-      });
-      results.surahs = surahs;
-    }
-
-    // Search ayahs if type is 'all' or 'ayah'
-    if (type === 'all' || type === 'ayah') {
-      // Get total count
-      const total = await db.ayah.count({ where: whereClause });
-
-      // Get ayahs with pagination
-      const ayahs = await db.ayah.findMany({
-        where: whereClause,
-        orderBy: [
-          { surahId: 'asc' },
-          { ayahNumber: 'asc' },
-        ],
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          Surah: {
-            select: {
-              id: true,
-              number: true,
-              nameArabic: true,
-              nameEnglish: true,
-            },
-          },
-        },
-      });
-
-      // Transform results
-      results.ayahs = ayahs.map((ayah, index) => ({
+      ayahs: paginatedAyahs.map((ayah, index) => ({
         id: ayah.id,
         surahId: ayah.surahId,
-        surahNumber: ayah.Surah?.number || 0,
-        surahNameArabic: ayah.Surah?.nameArabic || '',
-        surahNameEnglish: ayah.Surah?.nameEnglish || '',
+        surahNumber: surahMap.get(ayah.surahId)?.number || 0,
+        surahNameArabic: surahMap.get(ayah.surahId)?.nameArabic || '',
+        surahNameEnglish: surahMap.get(ayah.surahId)?.nameEnglish || '',
         ayahNumber: ayah.ayahNumber,
         ayahNumberGlobal: ayah.ayahNumberGlobal,
-        textArabic: ayah.textArabic,
+        textArabic: ayah.textArabic || '',
         textUthmani: ayah.textUthmani,
         pageNumber: ayah.pageNumber,
         juzNumber: ayah.juzNumber,
         hizbNumber: ayah.hizbNumber,
         sajdah: ayah.sajdah,
-        score: 1 - (index * 0.01), // Simple relevance scoring
+        score: 1 - (index * 0.01),
         highlighted: highlight
-          ? highlightMatch(ayah.textArabic, exactQuery, '<mark>', '</mark>')
+          ? highlightMatch(ayah.textArabic || '', exactQuery, '<mark>', '</mark>')
           : undefined,
-      }));
-
-      return NextResponse.json({
-        success: true,
-        data: results,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-        meta: {
-          query: q,
-          normalizedQuery,
-          type,
-          took: Date.now() - startTime,
-          method: 'database',
-        } as SearchMeta,
-      });
-    }
+      })),
+    };
 
     return NextResponse.json({
       success: true,
       data: results,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
       meta: {
         query: q,
         normalizedQuery,
         type,
         took: Date.now() - startTime,
-        method: 'database',
+        method: 'database-normalized',
       } as SearchMeta,
     });
   } catch (error) {
