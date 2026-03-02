@@ -19,6 +19,83 @@
 
 ---
 
+## [3.0.0] - 2026-03-02
+
+### 🏗️ تغيير معماري جوهري - تحويل كامل للـ Microservices
+
+#### الهدف
+تحويل التطبيق من Monolithic إلى Microservices Architecture بالكامل، بحيث تتصل جميع API Routes بالخدمات المصغرة عبر HTTP.
+
+#### Service Clients الجديدة
+| الملف | الخدمة | المنفذ |
+|-------|--------|--------|
+| `src/lib/quran-service-client.ts` | quran-service | 3001 |
+| `src/lib/tafsir-service-client.ts` | tafsir-service | 3004 |
+| `src/lib/users-service-client.ts` | users-service | 3005 |
+| `src/lib/reciter-service-client.ts` | reciter-service | 3006 |
+| `src/lib/admin-service-client.ts` | admin-service | 3008 |
+
+#### API Routes المحولة
+جميع API Routes الآن تتواصل مع الخدمات المصغرة:
+
+| Route | الخدمة |
+|-------|--------|
+| `/api/surahs` | quran-service |
+| `/api/ayah` | quran-service + tafsir-service |
+| `/api/mushaf-editions` | quran-service |
+| `/api/mushaf-ayahs` | quran-service |
+| `/api/recitations` | audio-service + quran-service |
+| `/api/reciters` | reciter-service |
+| `/api/tafsir` | tafsir-service |
+| `/api/search` | search-service + quran-service |
+| `/api/auth/login` | users-service |
+| `/api/auth/register` | users-service |
+
+#### البنية الجديدة
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Next.js Application                       │
+│                    (Frontend + API Gateway)                  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTP Calls
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │
+   ┌────▼────┐        ┌─────▼─────┐       ┌────▼────┐
+   │ quran-  │        │  audio-   │       │ search- │
+   │ service │        │  service  │       │ service │
+   │  :3001  │        │   :3002   │       │  :3003  │
+   └────┬────┘        └─────┬─────┘       └────┬────┘
+        │                   │                   │
+   ┌────▼────┐        ┌─────▼─────┐       ┌────▼────┐
+   │ tafsir- │        │  users-   │       │reciter- │
+   │ service │        │  service  │       │ service │
+   │  :3004  │        │   :3005   │       │  :3006  │
+   └────┬────┘        └─────┬─────┘       └────┬────┘
+        │                   │                   │
+   ┌────▼────┐        ┌─────▼─────┐            │
+   │   ai-   │        │  admin-   │            │
+   │ service │        │  service  │            │
+   │  :3007  │        │   :3008   │            │
+   └────┬────┘        └─────┬─────┘            │
+        │                   │                   │
+        └───────────────────┼───────────────────┘
+                            │
+                    ┌───────▼───────┐
+                    │    SQLite     │
+                    │   (Shared)    │
+                    └───────────────┘
+```
+
+#### المزايا
+1. **قابلية التوسع**: كل خدمة يمكن توسيعها بشكل مستقل
+2. **العزل**: تعطل خدمة لا يوقف التطبيق بالكامل
+3. **الصيانة**: سهولة صيانة وتحديث كل خدمة بشكل منفصل
+4. **التطوير**: فرق متعددة يمكنها العمل على خدمات مختلفة
+
+**التفاصيل:** انظر `changelog/v3.0.0.md`
+
+---
+
 ## [2.0.3] - 2026-03-02
 
 ### 🔧 الإصلاحات

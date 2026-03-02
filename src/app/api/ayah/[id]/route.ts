@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+
+// Service ports
+const QURAN_SERVICE_PORT = 3001;
+const TAFSIR_SERVICE_PORT = 3004;
 
 export async function GET(
   request: NextRequest,
@@ -8,40 +11,66 @@ export async function GET(
   try {
     const { id } = await params;
     const ayahId = parseInt(id, 10);
+
+    if (isNaN(ayahId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid ayah ID' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const translation = searchParams.get('translation') || 'en-sahih';
     const tafsir = searchParams.get('tafsir');
 
-    const ayah = await db.ayah.findUnique({
-      where: { id: ayahId },
-      include: {
-        surah: true,
-        translationEntries: {
-          where: {
-            source: { languageCode: translation },
-          },
-          include: {
-            source: { select: { name: true, languageCode: true } },
-          },
-        },
-        tafsirEntries: tafsir
-          ? {
-              where: {
-                source: { slug: tafsir },
-              },
-              include: {
-                source: { select: { nameEnglish: true, nameArabic: true } },
-              },
-            }
-          : undefined,
-      },
-    });
+    // Fetch ayah from quran-service
+    const ayahResponse = await fetch(`http://localhost:${QURAN_SERVICE_PORT}/ayahs/${ayahId}`);
+    const ayahData = await ayahResponse.json();
 
-    if (!ayah) {
+    if (!ayahData.success) {
       return NextResponse.json(
-        { success: false, error: 'Ayah not found' },
+        { success: false, error: ayahData.error || 'Ayah not found' },
         { status: 404 }
       );
+    }
+
+    const ayah = ayahData.data;
+
+    // Fetch translation from tafsir-service
+    let translationData = null;
+    try {
+      const translationResponse = await fetch(
+        `http://localhost:${TAFSIR_SERVICE_PORT}/translations/ayah/${ayahId}?sourceId=${translation}`
+      );
+      const translationResult = await translationResponse.json();
+      if (translationResult.success && translationResult.data?.length > 0) {
+        const t = translationResult.data[0];
+        translationData = {
+          text: t.text,
+          source: {
+            name: t.TranslationSource?.name || 'Unknown',
+            languageCode: t.TranslationSource?.language || 'en',
+          },
+        };
+      }
+    } catch {
+      // Translation not available
+    }
+
+    // Fetch tafsir if requested
+    let tafsirData = null;
+    if (tafsir) {
+      try {
+        const tafsirResponse = await fetch(
+          `http://localhost:${TAFSIR_SERVICE_PORT}/tafsir/ayah/${ayahId}?sourceId=${tafsir}`
+        );
+        const tafsirResult = await tafsirResponse.json();
+        if (tafsirResult.success && tafsirResult.data?.length > 0) {
+          tafsirData = tafsirResult.data[0];
+        }
+      } catch {
+        // Tafsir not available
+      }
     }
 
     return NextResponse.json({
@@ -56,19 +85,14 @@ export async function GET(
         juzNumber: ayah.juzNumber,
         hizbNumber: ayah.hizbNumber,
         sajdah: ayah.sajdah,
-        surah: {
-          id: ayah.surah.id,
-          number: ayah.surah.number,
-          nameArabic: ayah.surah.nameArabic,
-          nameEnglish: ayah.surah.nameEnglish,
-        },
-        translation: ayah.translationEntries[0]
-          ? {
-              text: ayah.translationEntries[0].text,
-              source: ayah.translationEntries[0].source,
-            }
-          : null,
-        tafsir: ayah.tafsirEntries?.[0] || null,
+        surah: ayah.Surah ? {
+          id: ayah.Surah.id,
+          number: ayah.Surah.number,
+          nameArabic: ayah.Surah.nameArabic,
+          nameEnglish: ayah.Surah.nameEnglish,
+        } : null,
+        translation: translationData,
+        tafsir: tafsirData,
       },
     });
   } catch (error) {
