@@ -1,149 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  answerQuestion,
-  explainAyah,
-  compareAyahs,
-  getContextualAnswer,
-} from '@/services/ai/question-answering';
+import { chatApi } from '@/lib/ai-service-client';
 
 /**
  * POST /api/ai/chat
  * 
- * AI-powered chat/QA endpoint for Quran questions
+ * Send a chat message and get AI response
  * 
  * Body:
- * - type: 'qa' | 'explain' | 'compare' | 'contextual'
- * - question?: string (for 'qa' and 'contextual')
- * - ayahId?: number (for 'explain')
- * - ayahIds?: number[] (for 'compare')
- * - context?: { previousQuestions?: string[], viewedAyahs?: number[] }
- * - options?: { language?: 'ar' | 'en', includeTafsir?: boolean }
+ * - messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+ * - temperature?: number
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type = 'qa', question, ayahId, ayahIds, context, options = {} } = body;
+    const { messages, temperature } = body;
     
-    let result;
-    
-    switch (type) {
-      case 'qa':
-        if (!question) {
-          return NextResponse.json({
-            success: false,
-            error: 'Question is required for QA',
-          }, { status: 400 });
-        }
-        
-        result = await answerQuestion(question, {
-          language: options.language || 'ar',
-          includeTafsir: options.includeTafsir !== false,
-        });
-        break;
-        
-      case 'explain':
-        if (!ayahId) {
-          return NextResponse.json({
-            success: false,
-            error: 'ayahId is required for explain',
-          }, { status: 400 });
-        }
-        
-        result = await explainAyah(ayahId, {
-          language: options.language || 'ar',
-          detailLevel: options.detailLevel || 'brief',
-        });
-        break;
-        
-      case 'compare':
-        if (!ayahIds || ayahIds.length < 2) {
-          return NextResponse.json({
-            success: false,
-            error: 'At least 2 ayahIds are required for compare',
-          }, { status: 400 });
-        }
-        
-        result = await compareAyahs(ayahIds);
-        break;
-        
-      case 'contextual':
-        if (!question) {
-          return NextResponse.json({
-            success: false,
-            error: 'Question is required for contextual QA',
-          }, { status: 400 });
-        }
-        
-        result = await getContextualAnswer(question, context);
-        break;
-        
-      default:
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid type. Use: qa, explain, compare, or contextual',
-        }, { status: 400 });
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Messages array is required',
+      }, { status: 400 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data: result,
-      meta: {
-        type,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const result = await chatApi.sendMessage(messages, { temperature });
+    
+    return NextResponse.json(result);
     
   } catch (error) {
-    console.error('[API] AI chat error:', error);
+    console.error('[API] Chat error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to process request',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Chat request failed',
     }, { status: 500 });
   }
 }
 
 /**
- * GET /api/ai/chat
+ * POST /api/ai/chat/answer
  * 
- * Quick question answering via query parameters
+ * Answer a question about Quran with context
+ * 
+ * Body:
+ * - question: string
+ * - context?: Array<{ text: string; surah: string; reference: string }>
  */
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const question = searchParams.get('q');
-  const language = (searchParams.get('lang') || 'ar') as 'ar' | 'en';
-  
-  if (!question) {
-    return NextResponse.json({
-      success: false,
-      error: 'Query parameter "q" is required',
-    }, { status: 400 });
-  }
-  
+export async function PUT(request: NextRequest) {
   try {
-    const result = await answerQuestion(question, {
-      language,
-      includeTafsir: true,
-    });
+    const body = await request.json();
+    const { question, context } = body;
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        question: result.question,
-        answer: result.answer,
-        sources: result.sources,
-        confidence: result.confidence,
-      },
-      meta: {
-        processingTime: result.processingTime,
-      },
-    });
+    if (!question) {
+      return NextResponse.json({
+        success: false,
+        error: 'Question is required',
+      }, { status: 400 });
+    }
+    
+    const result = await chatApi.answerQuestion(question, context);
+    
+    return NextResponse.json(result);
     
   } catch (error) {
-    console.error('[API] AI chat error:', error);
+    console.error('[API] Answer error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to answer question',
+      error: 'Answer request failed',
     }, { status: 500 });
   }
 }

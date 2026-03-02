@@ -7,9 +7,8 @@
  * @module embeddings
  */
 
-import { db } from '@/lib/db';
-import { generateEmbedding } from '@/lib/z-ai-client';
-import { normalizeForSearch } from '@/services/arabic-normalizer';
+import { db } from '../../shared/db';
+import { generateEmbedding } from '../lib/z-ai-client';
 
 // Constants
 const EMBEDDING_MODEL = 'quran-semantic-v1';

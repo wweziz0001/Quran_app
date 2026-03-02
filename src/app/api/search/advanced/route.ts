@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchAyahs } from '@/services/search-service';
-import { normalizeForSearch, removeDiacritics, tokenize } from '@/services/arabic-normalizer';
+import { searchApi } from '@/lib/search-service-client';
 
 /**
  * GET /api/search/advanced
@@ -44,18 +43,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Parse surah IDs (can be comma-separated)
-  let surahId: number | number[] | undefined;
+  let surahId: number | undefined;
   if (surah) {
     const surahIds = surah.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-    if (surahIds.length === 1) {
-      surahId = surahIds[0];
-    } else if (surahIds.length > 1) {
-      surahId = surahIds;
+    if (surahIds.length >= 1) {
+      surahId = surahIds[0]; // Use first surah ID
     }
   }
 
   try {
-    const result = await searchAyahs({
+    const result = await searchApi.search({
       query,
       type,
       surahId,
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true,
+      success: result.success,
       data: result.data,
       pagination: result.pagination,
       meta: {
@@ -142,7 +139,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build search params
-    const searchParams = {
+    const result = await searchApi.search({
       query,
       type,
       surahId: filters.surahId,
@@ -155,12 +152,10 @@ export async function POST(request: NextRequest) {
       highlight: options.highlight !== false,
       includeTranslations: options.includeTranslations || false,
       includeTafsir: options.includeTafsir || false,
-    };
-
-    const result = await searchAyahs(searchParams);
+    });
 
     return NextResponse.json({
-      success: true,
+      success: result.success,
       data: result.data,
       pagination: result.pagination,
       meta: {

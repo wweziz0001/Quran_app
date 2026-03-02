@@ -7,7 +7,7 @@
  * @module search-service
  */
 
-import { db } from '@/lib/db';
+import { db } from '../../shared/db';
 import {
   search as esSearch,
   autocomplete as esAutocomplete,
