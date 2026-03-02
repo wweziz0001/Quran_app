@@ -147,21 +147,10 @@ MAJOR.MINOR.PATCH (مثال: 1.2.6)
 
 ## 📝 الإصدار الحالي
 
-**الإصدار**: 1.5.0
-**تاريخ الإصدار**: 2025-01-16
+**الإصدار**: 2.0.0
+**تاريخ الإصدار**: 2025-03-02
 
 آخر التحديثات:
-- ✅ 11 جدول جديد (Enterprise Database Schema)
-- ✅ Soft Delete لـ 6 نماذج
-- ✅ Slug للسور (SEO-friendly URLs)
-- ✅ ملف seed مع بيانات أولية
-- ✅ TypeScript types للجداول الجديدة
-
-### الإصدارات السابقة:
-
-**1.4.1** - إصلاح تبويب Schema
-**1.4.0** - إعادة بناء لوحة الإدارة (صفحات منفصلة + Lazy Loading)
-**1.3.4** - حذف Database Browser، تحديث README
 
 انظر [changelog/CHANGELOG.md](./changelog/CHANGELOG.md) للتفاصيل الكاملة.
 
