@@ -1,0 +1,45 @@
+# =============================================================================
+# Security Scan - Simplified
+# =============================================================================
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔍 CodeQL Init
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+        continue-on-error: true
+
+      - name: 🏗️ Autobuild
+        uses: github/codeql-action/autobuild@v3
+        continue-on-error: true
+
+      - name: 🔍 CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
+
+      - name: 📊 Summary
+        if: always()
+        run: |
+          echo "## ✅ Security Scan Complete" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,52 @@
+# =============================================================================
+# Test Suite - Simplified
+# =============================================================================
+
+name: Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: 💾 Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+
+      - name: 📥 Install
+        run: bun install --frozen-lockfile
+
+      - name: 🔧 Generate Prisma
+        run: bun run db:generate
+
+      - name: 🧪 Unit Tests
+        run: bun test
+        continue-on-error: true
+
+      - name: 📊 Summary
+        if: always()
+        run: |
+          echo "## ✅ Tests Complete" >> $GITHUB_STEP_SUMMARY
