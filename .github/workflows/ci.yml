@@ -26,6 +26,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  security-events: write
+
 # Concurrency: Cancel in-progress runs
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -313,11 +320,6 @@ jobs:
     timeout-minutes: 15
     needs: code-quality
     
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
@@ -547,12 +549,16 @@ jobs:
             [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
             `;
             
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            } catch (error) {
+              console.log('Could not create comment: ' + error.message);
+            }
 
       - name: 📢 Notify on Failure
         if: failure()
