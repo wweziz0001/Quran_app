@@ -79,4 +79,68 @@ echo "================================="
 echo "Starting development server..."
 echo "================================="
 
-bun run dev
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting quran-service..."
+echo "================================="
+
+cd services/quran-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting audio-service..."
+echo "================================="
+
+cd ../../services/audio-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting search-service..."
+echo "================================="
+
+cd ../../services/search-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting tafsir-service..."
+echo "================================="
+
+cd ../../services/tafsir-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting users-service..."
+echo "================================="
+
+cd ../../services/users-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting reciter-service..."
+echo "================================="
+
+cd ../../services/reciter-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting ai-service..."
+echo "================================="
+
+cd ../../services/ai-service
+bun install
+nohup bun run dev > output.log 2>&1 &
+
+echo "================================="
+echo "Starting admin-service..."
+echo "================================="
+
+cd ../../services/admin-service
+bun install
+nohup bun run dev > output.log 2>&1 &
