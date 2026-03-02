@@ -33,8 +33,8 @@ async function checkServiceHealth(service: typeof services[0]): Promise<ServiceH
   const startTime = Date.now();
   
   try {
-    // Use XTransformPort to route through gateway
-    const response = await fetch(`http://localhost:3000/health?XTransformPort=${service.port}`, {
+    // Connect directly to microservice (bypass gateway for server-side calls)
+    const response = await fetch(`http://localhost:${service.port}/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });

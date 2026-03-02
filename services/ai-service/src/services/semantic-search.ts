@@ -7,14 +7,14 @@
  * @module semantic-search
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { generateEmbedding } from '../lib/z-ai-client';
 import { 
   getAyahEmbedding, 
   findSimilarAyahs, 
   cosineSimilarity 
 } from './embeddings';
-import { normalizeForSearch } from '../../shared/arabic-normalizer';
+import { normalizeForSearch } from '@quran/shared/arabic-normalizer';
 
 // Types
 export interface SemanticSearchResult {

@@ -7,7 +7,7 @@
  * @module recommendations
  */
 
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { getAyahEmbedding, findSimilarAyahs, cosineSimilarity } from './embeddings';
 import { chatCompletion, generateSimilarThemes } from '../lib/z-ai-client';
 

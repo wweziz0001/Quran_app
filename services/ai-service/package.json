@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@quran/shared": "file:../shared",
     "@prisma/client": "^5.0.0",
     "hono": "^4.0.0",
     "z-ai-web-dev-sdk": "latest"

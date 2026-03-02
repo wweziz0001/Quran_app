@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 
 const app = new Hono();
 

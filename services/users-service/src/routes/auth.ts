@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 
 const app = new Hono();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';

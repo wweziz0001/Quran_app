@@ -19,6 +19,47 @@
 
 ---
 
+## [2.0.3] - 2026-03-02
+
+### 🔧 الإصلاحات
+
+#### تفعيل الخدمات المصغرة (Microservices Activation)
+
+**المشكلة:**
+الخدمات المصغرة (8 خدمات) لم تكن تعمل بسبب مشاكل في:
+- مسارات الاستيراد `../../shared/db` غير صحيحة
+- عدم وجود `@quran/shared` كـ dependency
+- API التحقق من صحة الخدمات يستخدم Gateway غير مُعد بشكل صحيح
+
+**الحل:**
+1. إصلاح مسارات الاستيراد: `import { db } from '@quran/shared/db'`
+2. إضافة `@quran/shared: "file:../shared"` في package.json لكل خدمة
+3. تعديل API للاتصال المباشر بالخدمات
+
+**الملفات المتأثرة:**
+- `services/*/package.json` - إضافة @quran/shared
+- `services/*/src/**/*.ts` - إصلاح مسارات الاستيراد
+- `src/app/api/admin/deployment/services-health/route.ts` - الاتصال المباشر
+
+**النتيجة:**
+- ✅ 8 خدمات مصغرة تعمل بنجاح
+- ✅ جميع الخدمات تظهر في واجهة `/admin/deployment`
+
+| الخدمة | المنفذ | الحالة |
+|--------|--------|--------|
+| quran-service | 3001 | ✅ healthy |
+| audio-service | 3002 | ✅ healthy |
+| search-service | 3003 | ✅ healthy |
+| tafsir-service | 3004 | ✅ healthy |
+| users-service | 3005 | ✅ healthy |
+| reciter-service | 3006 | ✅ healthy |
+| ai-service | 3007 | ✅ healthy |
+| admin-service | 3008 | ✅ healthy |
+
+**التفاصيل:** انظر `changelog/v2.0.3.md`
+
+---
+
 ## [2.0.2] - 2025-03-02
 
 ### ✨ ميزة جديدة

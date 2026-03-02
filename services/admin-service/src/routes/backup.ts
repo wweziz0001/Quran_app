@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
 import { join } from 'path';
 

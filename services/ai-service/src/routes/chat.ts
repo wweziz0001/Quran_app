@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { db } from '../../shared/db';
+import { db } from '@quran/shared/db';
 import { chatCompletion, answerQuranQuestion } from '../lib/z-ai-client';
 import { answerQuestion, explainAyah, getContextualAnswer } from '../services/question-answering';
 import { semanticSearch } from '../services/semantic-search';
