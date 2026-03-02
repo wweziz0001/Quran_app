@@ -480,7 +480,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [code-quality, unit-tests]
-    if: ${{ secrets.SONAR_TOKEN != '' }}
+    # Only run if SONAR_TOKEN secret is configured (checked inside the step)
     
     steps:
       - name: 📥 Checkout repository
