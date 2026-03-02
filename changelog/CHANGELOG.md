@@ -18,6 +18,75 @@
 
 ---
 
+## [1.8.1] - 2025-01-XX
+
+### 🔧 الإصلاحات
+
+#### إصلاح خطأ Prisma في استعلامات Mushaf
+
+**المشكلة:**
+خطأ `Unknown field ImageMushafWord for select statement` عند الوصول إلى `/api/admin/image-mushaf` و `/api/admin/ttf-mushaf`.
+
+**السبب:**
+محاولة عد `ImageMushafWord` و `TtfMushafWord` من Edition بينما هي مرتبطة بـ Ayah وليست Edition مباشرة.
+
+**الحل:**
+إزالة الحقول غير الموجودة من استعلامات `_count`:
+- `ImageMushafWord` و `ImageMushafLine` من `image-mushaf/route.ts`
+- `TtfMushafWord` من `ttf-mushaf/route.ts`
+
+**الملفات المتأثرة:**
+- `src/app/api/admin/image-mushaf/route.ts`
+- `src/app/api/admin/ttf-mushaf/route.ts`
+
+**التفاصيل:** انظر `changelog/v1.8.1.md`
+
+---
+
+## [1.8.0] - 2025-01-18
+
+### ✨ الميزات الجديدة - Stage 4: AI Embeddings Scaffold
+
+#### نظام البحث الدلالي والذكاء الاصطناعي
+
+تم إنشاء نظام متكامل للبحث الدلالي والإجابة على الأسئلة القرآنية باستخدام الذكاء الاصطناعي.
+
+| الميزة | الوصف |
+|--------|-------|
+| **Semantic Search** | البحث بالمعنى وليس بالكلمات فقط |
+| **Hybrid Search** | دمج البحث النصي مع البحث الدلالي |
+| **Question Answering** | الإجابة على أسئلة المستخدمين حول القرآن |
+| **AI Tafsir** | تفسير ذكي للآيات القرآنية |
+| **Recommendations** | اقتراح آيات مشابهة ومكملة |
+
+#### الملفات الجديدة
+
+**src/lib/**
+- `z-ai-client.ts` - عميل Z-AI SDK
+
+**src/services/ai/**
+- `embeddings.ts` - خدمة Embeddings (~200 سطر)
+- `semantic-search.ts` - البحث الدلالي (~180 سطر)
+- `question-answering.ts` - نظام QA (~250 سطر)
+- `tafsir-ai.ts` - تفسير AI (~280 سطر)
+- `recommendations.ts` - الاقتراحات (~220 سطر)
+
+**src/app/api/ai/**
+- `embeddings/route.ts` - API الـ Embeddings
+- `search/route.ts` - API البحث الدلالي
+- `chat/route.ts` - API المحادثة/QA
+- `tafsir/route.ts` - API التفسير الذكي
+- `recommendations/route.ts` - API الاقتراحات
+
+**scripts/**
+- `generate-embeddings.ts` - توليد الـ Embeddings
+- `test-embeddings.ts` - اختبار النظام
+- `benchmark-search.ts` - قياس الأداء
+
+**التفاصيل:** انظر `changelog/v1.8.0.md`
+
+---
+
 ## [1.7.1] - 2025-01-18
 
 ### 🔧 الإصلاحات
