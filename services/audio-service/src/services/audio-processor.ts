@@ -1,120 +1,340 @@
 /**
  * Audio Processor Service
- * Handles audio processing, validation, and metadata extraction
+ * Handles audio processing tasks
  */
 
-interface AudioMetadata {
-  duration: number;
-  bitrate: number;
-  sampleRate: number;
-  channels: number;
-  format: string;
-  fileSize: number;
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { spawn } from 'child_process';
+import { getAudioDuration, getAudioMetadata, normalizeAudio } from './hls-converter';
+
+// Processing jobs storage
+const processingJobs = new Map<string, ProcessingJob>();
+
+export interface ProcessingJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  progress: number;
+  inputPath: string;
+  outputPath?: string;
+  error?: string;
+  startedAt: Date;
+  completedAt?: Date;
+  metadata?: {
+    duration?: number;
+    bitrate?: number;
+    format?: string;
+  };
 }
 
-interface AudioValidation {
+export interface AudioValidation {
   isValid: boolean;
   errors: string[];
   warnings: string[];
+  metadata?: {
+    duration: number;
+    bitrate: number;
+    sampleRate: number;
+    channels: number;
+    format: string;
+  };
 }
 
 /**
- * Extract metadata from audio file
+ * Create processing job
  */
-export async function extractMetadata(filePath: string): Promise<AudioMetadata> {
-  // In production, use ffprobe or similar
-  // ffprobe -v quiet -print_format json -show_format -show_streams ${filePath}
-
-  console.log(`[Audio Processor] Extracting metadata from: ${filePath}`);
-
-  return {
-    duration: 0,
-    bitrate: 128000,
-    sampleRate: 44100,
-    channels: 2,
-    format: 'mp3',
-    fileSize: 0,
+export function createProcessingJob(
+  id: string,
+  inputPath: string
+): ProcessingJob {
+  const job: ProcessingJob = {
+    id,
+    status: 'pending',
+    progress: 0,
+    inputPath,
+    startedAt: new Date(),
   };
+
+  processingJobs.set(id, job);
+  return job;
+}
+
+/**
+ * Get processing job
+ */
+export function getProcessingJob(id: string): ProcessingJob | null {
+  return processingJobs.get(id) || null;
+}
+
+/**
+ * Update job status
+ */
+function updateJob(id: string, update: Partial<ProcessingJob>): void {
+  const job = processingJobs.get(id);
+  if (job) {
+    processingJobs.set(id, { ...job, ...update });
+  }
+}
+
+/**
+ * Process audio file
+ */
+export async function processAudioFile(
+  inputPath: string,
+  options: {
+    normalize?: boolean;
+    targetDb?: number;
+    outputFormat?: 'mp3' | 'wav' | 'aac';
+    outputBitrate?: number;
+    outputPath?: string;
+  } = {}
+): Promise<string> {
+  const {
+    normalize = true,
+    targetDb = -16,
+    outputFormat = 'mp3',
+    outputBitrate = 128,
+    outputPath,
+  } = options;
+
+  const finalOutputPath =
+    outputPath || inputPath.replace(/\.[^.]+$/, `_processed.${outputFormat}`);
+
+  let currentPath = inputPath;
+
+  // Normalize audio if requested
+  if (normalize) {
+    const normalizedPath = inputPath.replace(
+      /\.[^.]+$/,
+      `_normalized.${outputFormat}`
+    );
+    try {
+      await normalizeAudio(currentPath, normalizedPath, targetDb);
+      currentPath = normalizedPath;
+    } catch {
+      // Continue without normalization if it fails
+    }
+  }
+
+  // Convert format if needed
+  if (currentPath !== finalOutputPath) {
+    await convertAudio(currentPath, finalOutputPath, outputFormat, outputBitrate);
+  }
+
+  // Clean up intermediate files
+  if (currentPath !== inputPath) {
+    await fs.unlink(currentPath).catch(() => {});
+  }
+
+  return finalOutputPath;
+}
+
+/**
+ * Convert audio format
+ */
+async function convertAudio(
+  inputPath: string,
+  outputPath: string,
+  format: string,
+  bitrate: number
+): Promise<void> {
+  const codecMap: Record<string, string> = {
+    mp3: 'libmp3lame',
+    wav: 'pcm_s16le',
+    aac: 'aac',
+    ogg: 'libvorbis',
+  };
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-c:a', codecMap[format] || 'libmp3lame',
+      '-b:a', `${bitrate}k`,
+      '-y',
+      outputPath,
+    ];
+
+    const ffmpeg = spawn('ffmpeg', args);
+
+    let stderr = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg conversion failed: ${stderr}`));
+      }
+    });
+
+    ffmpeg.on('error', reject);
+  });
 }
 
 /**
  * Validate audio file
  */
-export async function validateAudio(filePath: string): Promise<AudioValidation> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  // In production, perform actual validation
-  // - Check file format
-  // - Check bitrate
-  // - Check sample rate
-  // - Check for corruption
-  // - Check duration matches expected
-
-  console.log(`[Audio Processor] Validating: ${filePath}`);
-
-  const metadata = await extractMetadata(filePath);
-
-  if (metadata.duration === 0) {
-    errors.push('Audio file has zero duration');
-  }
-
-  if (metadata.bitrate < 64000) {
-    warnings.push('Low bitrate detected, consider higher quality');
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
+export async function validateAudioFile(filePath: string): Promise<AudioValidation> {
+  const result: AudioValidation = {
+    isValid: true,
+    errors: [],
+    warnings: [],
   };
+
+  try {
+    // Check file exists
+    const stats = await fs.stat(filePath);
+
+    // Check file size (max 100MB)
+    if (stats.size > 100 * 1024 * 1024) {
+      result.errors.push('File size exceeds 100MB limit');
+      result.isValid = false;
+    }
+
+    // Check file size (min 1KB)
+    if (stats.size < 1024) {
+      result.errors.push('File size is too small');
+      result.isValid = false;
+    }
+
+    // Get metadata
+    const metadata = await getAudioMetadata(filePath);
+    result.metadata = metadata;
+
+    // Validate duration (max 30 minutes)
+    if (metadata.duration > 30 * 60) {
+      result.errors.push('Audio duration exceeds 30 minutes limit');
+      result.isValid = false;
+    }
+
+    // Validate sample rate
+    if (metadata.sampleRate < 22050) {
+      result.warnings.push('Low sample rate detected');
+    }
+
+    // Validate bitrate
+    if (metadata.bitrate < 64000) {
+      result.warnings.push('Low bitrate detected');
+    }
+  } catch (error) {
+    result.errors.push(`Failed to read file: ${(error as Error).message}`);
+    result.isValid = false;
+  }
+
+  return result;
 }
 
 /**
- * Calculate audio duration from bytes
+ * Extract audio segment
  */
-export function estimateDuration(fileSize: number, bitrate: number): number {
-  // Duration = (fileSize * 8) / bitrate
-  return (fileSize * 8) / bitrate;
-}
-
-/**
- * Normalize audio volume
- */
-export async function normalizeVolume(
+export async function extractAudioSegment(
   inputPath: string,
-  outputPath: string,
-  targetDb: number = -14
-): Promise<void> {
-  // In production, use ffmpeg
-  // ffmpeg -i ${inputPath} -af "loudnorm=I=${targetDb}" ${outputPath}
+  startTime: number,
+  endTime: number,
+  outputPath: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-ss', startTime.toString(),
+      '-to', endTime.toString(),
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-y',
+      outputPath,
+    ];
 
-  console.log(`[Audio Processor] Normalizing ${inputPath} to ${targetDb}dB`);
+    const ffmpeg = spawn('ffmpeg', args);
+
+    let stderr = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`Segment extraction failed: ${stderr}`));
+      }
+    });
+
+    ffmpeg.on('error', reject);
+  });
 }
 
 /**
- * Split audio by silence
+ * Concatenate audio files
  */
-export async function splitBySilence(
+export async function concatenateAudio(
+  inputPaths: string[],
+  outputPath: string
+): Promise<string> {
+  // Create file list
+  const listContent = inputPaths.map((p) => `file '${p}'`).join('\n');
+  const listPath = outputPath.replace(/\.[^.]+$/, '_list.txt');
+
+  await fs.writeFile(listPath, listContent);
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', listPath,
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-y',
+      outputPath,
+    ];
+
+    const ffmpeg = spawn('ffmpeg', args);
+
+    let stderr = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    ffmpeg.on('close', async (code) => {
+      await fs.unlink(listPath).catch(() => {});
+
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`Concatenation failed: ${stderr}`));
+      }
+    });
+
+    ffmpeg.on('error', reject);
+  });
+}
+
+/**
+ * Split audio into segments
+ */
+export async function splitAudioIntoSegments(
   inputPath: string,
   outputDir: string,
-  options: {
-    minSilenceDuration?: number;
-    silenceThreshold?: number;
-    padding?: number;
-  } = {}
+  segmentDuration: number = 10
 ): Promise<string[]> {
-  const { minSilenceDuration = 0.5, silenceThreshold = -35, padding = 0.2 } = options;
+  await fs.mkdir(outputDir, { recursive: true });
 
-  // In production, use ffmpeg silencedetect
-  // ffmpeg -i ${inputPath} -af silencedetect=n=${silenceThreshold}dB:d=${minSilenceDuration} -f null -
+  const duration = await getAudioDuration(inputPath);
+  const segments: string[] = [];
 
-  console.log(`[Audio Processor] Splitting ${inputPath} by silence:`);
-  console.log(`  - Min silence: ${minSilenceDuration}s`);
-  console.log(`  - Threshold: ${silenceThreshold}dB`);
-  console.log(`  - Padding: ${padding}s`);
+  for (let start = 0; start < duration; start += segmentDuration) {
+    const end = Math.min(start + segmentDuration, duration);
+    const segmentPath = path.join(outputDir, `segment_${segments.length}.mp3`);
 
-  return [];
+    await extractAudioSegment(inputPath, start, end, segmentPath);
+    segments.push(segmentPath);
+  }
+
+  return segments;
 }
 
 /**
@@ -124,26 +344,115 @@ export async function generateWaveform(
   inputPath: string,
   samples: number = 1000
 ): Promise<number[]> {
-  // In production, use ffmpeg to extract audio data
-  // Then process into waveform peaks
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-ac', '1',
+      '-filter:a', `aresample=${samples}`,
+      '-f', 's16le',
+      'pipe:1',
+    ];
 
-  console.log(`[Audio Processor] Generating waveform for: ${inputPath}`);
-  console.log(`  - Samples: ${samples}`);
+    const ffmpeg = spawn('ffmpeg', args);
+    const chunks: Buffer[] = [];
 
-  // Return placeholder waveform data
-  return Array(samples).fill(0).map(() => Math.random());
+    ffmpeg.stdout.on('data', (data: Buffer) => {
+      chunks.push(data);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        const buffer = Buffer.concat(chunks);
+        const waveform: number[] = [];
+
+        for (let i = 0; i < buffer.length; i += 2) {
+          const sample = buffer.readInt16LE(i);
+          waveform.push(sample / 32768);
+        }
+
+        resolve(waveform);
+      } else {
+        reject(new Error('Waveform generation failed'));
+      }
+    });
+
+    ffmpeg.on('error', reject);
+  });
 }
 
 /**
- * Convert audio format
+ * Batch process audio files
  */
-export async function convertFormat(
-  inputPath: string,
-  outputPath: string,
-  format: 'mp3' | 'aac' | 'ogg' | 'wav'
-): Promise<void> {
-  // In production, use ffmpeg
-  // ffmpeg -i ${inputPath} -c:a ${codec} ${outputPath}
+export async function batchProcessAudio(
+  jobs: Array<{
+    id: string;
+    inputPath: string;
+    options?: Parameters<typeof processAudioFile>[1];
+  }>,
+  onProgress?: (id: string, progress: number, total: number) => void
+): Promise<Record<string, { success: boolean; outputPath?: string; error?: string }>> {
+  const results: Record<string, {
+    success: boolean;
+    outputPath?: string;
+    error?: string;
+  }> = {};
 
-  console.log(`[Audio Processor] Converting ${inputPath} to ${format}`);
+  let completed = 0;
+
+  for (const job of jobs) {
+    createProcessingJob(job.id, job.inputPath);
+    updateJob(job.id, { status: 'processing' });
+
+    try {
+      const outputPath = await processAudioFile(job.inputPath, job.options);
+
+      results[job.id] = { success: true, outputPath };
+      updateJob(job.id, {
+        status: 'completed',
+        progress: 100,
+        outputPath,
+        completedAt: new Date(),
+      });
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      results[job.id] = { success: false, error: errorMessage };
+      updateJob(job.id, { status: 'error', error: errorMessage });
+    }
+
+    completed++;
+    onProgress?.(job.id, completed, jobs.length);
+  }
+
+  return results;
 }
+
+/**
+ * Cleanup old jobs
+ */
+export function cleanupOldJobs(maxAgeMs: number = 24 * 60 * 60 * 1000): number {
+  const now = Date.now();
+  let removed = 0;
+
+  for (const [id, job] of processingJobs.entries()) {
+    const age = now - job.startedAt.getTime();
+    if (age > maxAgeMs) {
+      processingJobs.delete(id);
+      removed++;
+    }
+  }
+
+  return removed;
+}
+
+export default {
+  createProcessingJob,
+  getProcessingJob,
+  processAudioFile,
+  validateAudioFile,
+  extractAudioSegment,
+  concatenateAudio,
+  splitAudioIntoSegments,
+  generateWaveform,
+  batchProcessAudio,
+  cleanupOldJobs,
+};

@@ -7,7 +7,7 @@ import {
   tokenize,
   highlightMatch,
   parseReference,
-} from '@/services/arabic-normalizer';
+} from '@/lib/arabic-normalizer';
 import { Prisma } from '@prisma/client';
 
 // Types for search results

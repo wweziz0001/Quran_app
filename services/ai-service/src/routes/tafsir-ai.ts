@@ -1,49 +1,35 @@
 import { Hono } from 'hono';
-import { db } from '../../shared/db';
+import { 
+  generateComprehensiveTafsir, 
+  compareTafsirSources, 
+  analyzeTheme, 
+  getDailyTafsir 
+} from '../services/tafsir-ai';
 
 const app = new Hono();
 
 // POST /tafsir-ai/explain - AI-powered tafsir explanation for a specific ayah
 app.post('/explain', async (c) => {
   const body = await c.req.json();
-  const { ayahId, language = 'ar' } = body;
+  const { 
+    ayahId, 
+    language = 'ar',
+    includeVocabulary = true,
+    includeHistory = true,
+    includeApplications = true
+  } = body;
+
+  if (!ayahId) {
+    return c.json({ success: false, error: 'ayahId is required' }, 400);
+  }
 
   try {
-    const ayah = await db.ayah.findUnique({
-      where: { id: ayahId },
-      include: {
-        Surah: true,
-        TafsirEntry: {
-          include: { TafsirSource: true },
-          take: 3,
-        },
-      },
+    const explanation = await generateComprehensiveTafsir(ayahId, {
+      language,
+      includeVocabulary,
+      includeHistory,
+      includeApplications,
     });
-
-    if (!ayah) {
-      return c.json({ success: false, error: 'Ayah not found' }, 404);
-    }
-
-    // In production, use z-ai-web-dev-sdk for actual AI response
-    // const zai = await ZAI.create();
-    // const completion = await zai.chat.completions.create({...});
-
-    // Placeholder AI response
-    const explanation = {
-      ayahId,
-      surah: ayah.Surah?.nameArabic,
-      ayahNumber: ayah.ayahNumber,
-      text: ayah.textArabic,
-      translation: ayah.textUthmani,
-      explanation: language === 'ar'
-        ? `تفسير الآية ${ayah.ayahNumber} من سورة ${ayah.Surah?.nameArabic}: هذه الآية الكريمة تحمل معاني عظيمة وهدايات قيمة.`
-        : `Explanation of verse ${ayah.ayahNumber} from Surah ${ayah.Surah?.nameEnglish}: This noble verse carries great meanings and valuable guidance.`,
-      availableTafsirs: ayah.TafsirEntry.map(t => ({
-        source: t.TafsirSource?.nameEnglish,
-        text: t.textArabic?.substring(0, 200) + '...',
-      })),
-      note: 'This is a placeholder response. In production, use z-ai-web-dev-sdk for actual AI-generated explanations.',
-    };
 
     return c.json({
       success: true,
@@ -51,7 +37,8 @@ app.post('/explain', async (c) => {
     });
   } catch (error) {
     console.error('Tafsir AI error:', error);
-    return c.json({ success: false, error: 'Failed to generate tafsir explanation' }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate tafsir explanation';
+    return c.json({ success: false, error: errorMessage }, 500);
   }
 });
 
@@ -60,33 +47,12 @@ app.post('/compare', async (c) => {
   const body = await c.req.json();
   const { ayahId } = body;
 
+  if (!ayahId) {
+    return c.json({ success: false, error: 'ayahId is required' }, 400);
+  }
+
   try {
-    const tafsirEntries = await db.tafsirEntry.findMany({
-      where: { ayahId },
-      include: {
-        TafsirSource: true,
-      },
-    });
-
-    if (tafsirEntries.length === 0) {
-      return c.json({ success: false, error: 'No tafsir entries found for this ayah' }, 404);
-    }
-
-    // AI-powered comparison (placeholder)
-    const comparison = {
-      ayahId,
-      sources: tafsirEntries.length,
-      comparison: tafsirEntries.map(t => ({
-        source: t.TafsirSource?.nameEnglish,
-        language: t.TafsirSource?.language,
-        summary: t.textArabic?.substring(0, 150) + '...',
-        keyPoints: [
-          'Key point 1 from this tafsir',
-          'Key point 2 from this tafsir',
-        ],
-      })),
-      note: 'This is a placeholder. In production, use z-ai-web-dev-sdk for AI-powered comparison.',
-    };
+    const comparison = await compareTafsirSources(ayahId);
 
     return c.json({
       success: true,
@@ -94,49 +60,46 @@ app.post('/compare', async (c) => {
     });
   } catch (error) {
     console.error('Compare tafsir error:', error);
-    return c.json({ success: false, error: 'Failed to compare tafsirs' }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to compare tafsirs';
+    return c.json({ success: false, error: errorMessage }, 500);
   }
 });
 
-// POST /tafsir-ai/summarize - Summarize tafsir for a range of ayahs
-app.post('/summarize', async (c) => {
+// POST /tafsir-ai/analyze-theme - Analyze a theme across multiple ayahs
+app.post('/analyze-theme', async (c) => {
   const body = await c.req.json();
-  const { surahId, startAyah, endAyah } = body;
+  const { theme, limit = 10 } = body;
+
+  if (!theme) {
+    return c.json({ success: false, error: 'theme is required' }, 400);
+  }
 
   try {
-    const ayahs = await db.ayah.findMany({
-      where: {
-        surahId,
-        ayahNumber: {
-          gte: startAyah,
-          lte: endAyah,
-        },
-      },
-      orderBy: { ayahNumber: 'asc' },
-      include: {
-        TafsirEntry: { take: 1 },
-      },
-    });
-
-    const summary = {
-      surahId,
-      range: `${startAyah}-${endAyah}`,
-      totalAyahs: ayahs.length,
-      summary: 'AI-generated summary of the selected ayahs range.',
-      themes: [
-        'Theme 1 identified by AI',
-        'Theme 2 identified by AI',
-      ],
-      note: 'This is a placeholder. In production, use z-ai-web-dev-sdk for AI-powered summarization.',
-    };
+    const analysis = await analyzeTheme(theme, { limit });
 
     return c.json({
       success: true,
-      data: summary,
+      data: analysis,
     });
   } catch (error) {
-    console.error('Summarize error:', error);
-    return c.json({ success: false, error: 'Failed to summarize' }, 500);
+    console.error('Theme analysis error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze theme';
+    return c.json({ success: false, error: errorMessage }, 500);
+  }
+});
+
+// GET /tafsir-ai/daily - Get daily tafsir recommendation
+app.get('/daily', async (c) => {
+  try {
+    const dailyTafsir = await getDailyTafsir();
+
+    return c.json({
+      success: true,
+      data: dailyTafsir,
+    });
+  } catch (error) {
+    console.error('Daily tafsir error:', error);
+    return c.json({ success: false, error: 'Failed to get daily tafsir' }, 500);
   }
 });
 

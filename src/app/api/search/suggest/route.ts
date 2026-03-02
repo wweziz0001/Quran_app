@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAutocompleteSuggestions } from '@/services/search-service';
-import { normalizeForSearch, removeDiacritics } from '@/services/arabic-normalizer';
+import { searchApi } from '@/lib/search-service-client';
+import { normalizeForSearch } from '@/lib/arabic-normalizer';
 
 /**
  * GET /api/search/suggest
@@ -33,10 +33,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const suggestions = await getAutocompleteSuggestions(prefix, {
+    const result = await searchApi.autocomplete(prefix, {
       surahId: surahId ? parseInt(surahId) : undefined,
       limit,
     });
+
+    if (!result.success || !result.data) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        meta: {
+          prefix,
+          error: 'Suggestions not available',
+          fallback: true,
+        },
+      });
+    }
+
+    const suggestions = result.data;
 
     // Transform based on type
     const data = type === 'simple'
@@ -100,8 +114,8 @@ export async function POST(request: NextRequest) {
           return { prefix, suggestions: [] };
         }
 
-        const suggestions = await getAutocompleteSuggestions(prefix, { limit });
-        return { prefix, suggestions };
+        const result = await searchApi.autocomplete(prefix, { limit });
+        return { prefix, suggestions: result.success ? result.data || [] : [] };
       })
     );
 

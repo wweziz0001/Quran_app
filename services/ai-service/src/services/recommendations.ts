@@ -7,9 +7,9 @@
  * @module recommendations
  */
 
-import { db } from '@/lib/db';
+import { db } from '../../shared/db';
 import { getAyahEmbedding, findSimilarAyahs, cosineSimilarity } from './embeddings';
-import { chatCompletion, generateSimilarThemes } from '@/lib/z-ai-client';
+import { chatCompletion, generateSimilarThemes } from '../lib/z-ai-client';
 
 // Types
 export interface Recommendation {
@@ -335,7 +335,7 @@ export async function getPersonalizedRecommendations(
   
   const viewedAyahIds = [
     ...bookmarks.map(b => b.ayahId),
-    ...history.map(h => b.ayahId),
+    ...history.map(h => h.ayahId),
   ];
   
   return getRecommendations(

@@ -7,8 +7,8 @@
  * @module tafsir-ai
  */
 
-import { db } from '@/lib/db';
-import { chatCompletion, generateTafsirExplanation } from '@/lib/z-ai-client';
+import { db } from '../../shared/db';
+import { chatCompletion, generateTafsirExplanation } from '../lib/z-ai-client';
 import { semanticSearch } from './semantic-search';
 
 // Types

@@ -1,5 +1,14 @@
 import { Hono } from 'hono';
 import { db } from '../../shared/db';
+import { 
+  getAyahEmbedding, 
+  generateAyahEmbeddings, 
+  generateAllEmbeddings,
+  findSimilarAyahs,
+  getEmbeddingStats,
+  cosineSimilarity
+} from '../services/embeddings';
+import { generateEmbedding } from '../lib/z-ai-client';
 
 const app = new Hono();
 
@@ -13,21 +22,15 @@ app.post('/generate', async (c) => {
   }
 
   try {
-    // Using placeholder embedding for now
-    // In production, use actual embedding API from z-ai-web-dev-sdk
-    const embedding = {
-      model: 'text-embedding-ada-002',
-      dimensions: 1536,
-      vector: Array(1536).fill(0).map(() => Math.random()),
-    };
+    const embeddingResult = await generateEmbedding(text);
 
     return c.json({
       success: true,
       data: {
         text,
-        embedding: embedding.vector,
-        model: embedding.model,
-        dimensions: embedding.dimensions,
+        embedding: embeddingResult.embedding,
+        model: embeddingResult.model,
+        dimensions: embeddingResult.dimensions,
       },
     });
   } catch (error) {
@@ -39,41 +42,23 @@ app.post('/generate', async (c) => {
 // POST /embeddings/index - Index ayah embeddings
 app.post('/index', async (c) => {
   const body = await c.req.json();
-  const { ayahId } = body;
+  const { ayahId, force = false } = body;
+
+  if (!ayahId) {
+    return c.json({ success: false, error: 'ayahId is required' }, 400);
+  }
 
   try {
-    const ayah = await db.ayah.findUnique({
-      where: { id: ayahId },
-      include: { Surah: true },
-    });
-
-    if (!ayah) {
-      return c.json({ success: false, error: 'Ayah not found' }, 404);
-    }
-
-    // Generate placeholder embedding
-    const embedding = Array(1536).fill(0).map(() => Math.random());
-
-    // Store in SearchIndex
-    await db.searchIndex.upsert({
-      where: { ayahId },
-      update: {
-        content: ayah.textArabic,
-        embedding: JSON.stringify(embedding),
-        embeddingModel: 'text-embedding-ada-002',
-        lastIndexed: new Date(),
-      },
-      create: {
-        ayahId,
-        content: ayah.textArabic,
-        embedding: JSON.stringify(embedding),
-        embeddingModel: 'text-embedding-ada-002',
-      },
-    });
+    const result = await getAyahEmbedding(ayahId);
 
     return c.json({
       success: true,
-      data: { ayahId, indexed: true },
+      data: {
+        ayahId,
+        indexed: true,
+        cached: result.cached,
+        model: result.model,
+      },
     });
   } catch (error) {
     console.error('Index error:', error);
@@ -81,42 +66,188 @@ app.post('/index', async (c) => {
   }
 });
 
-// POST /embeddings/search - Semantic search
-app.post('/search', async (c) => {
+// POST /embeddings/index-batch - Index multiple ayahs
+app.post('/index-batch', async (c) => {
   const body = await c.req.json();
-  const { query, limit = 10 } = body;
+  const { ayahIds, batchSize = 10, force = false } = body;
+
+  if (!ayahIds || !Array.isArray(ayahIds)) {
+    return c.json({ success: false, error: 'ayahIds array is required' }, 400);
+  }
 
   try {
-    // Generate query embedding (placeholder)
-    // const queryEmbedding = Array(1536).fill(0).map(() => Math.random());
-
-    // Search in database
-    // Note: SQLite doesn't support vector similarity natively
-    // In production, use pgvector or dedicated vector DB
-    const indices = await db.searchIndex.findMany({
-      take: limit,
-      include: {
-        Ayah: {
-          include: { Surah: { select: { nameArabic: true, number: true } } },
-        },
-      },
-    });
+    const result = await generateAyahEmbeddings(ayahIds, { batchSize, force });
 
     return c.json({
       success: true,
-      data: indices.map(idx => ({
-        ayahId: idx.ayahId,
-        text: idx.content,
-        surah: idx.Ayah?.Surah?.nameArabic,
-        surahNumber: idx.Ayah?.Surah?.number,
-        ayahNumber: idx.Ayah?.ayahNumber,
-        similarity: Math.random(), // Placeholder
-      })),
+      data: result,
+    });
+  } catch (error) {
+    console.error('Batch index error:', error);
+    return c.json({ success: false, error: 'Failed to index ayahs' }, 500);
+  }
+});
+
+// POST /embeddings/index-all - Index all ayahs
+app.post('/index-all', async (c) => {
+  try {
+    const result = await generateAllEmbeddings();
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Index all error:', error);
+    return c.json({ success: false, error: 'Failed to index all ayahs' }, 500);
+  }
+});
+
+// POST /embeddings/search - Semantic search
+app.post('/search', async (c) => {
+  const body = await c.req.json();
+  const { query, limit = 10, threshold = 0.5, surahId, excludeAyahId } = body;
+
+  if (!query) {
+    return c.json({ success: false, error: 'Query is required' }, 400);
+  }
+
+  try {
+    // Generate query embedding
+    const queryEmbedding = await generateEmbedding(query);
+
+    // Find similar ayahs
+    const results = await findSimilarAyahs(queryEmbedding.embedding, {
+      limit,
+      threshold,
+      surahId,
+      excludeAyahId,
+    });
+
+    // Get ayah details
+    const ayahIds = results.map(r => r.ayahId);
+    const ayahs = await db.ayah.findMany({
+      where: { id: { in: ayahIds } },
+      include: {
+        Surah: { select: { nameArabic: true, nameEnglish: true, number: true } },
+      },
+    });
+
+    const ayahMap = new Map(ayahs.map(a => [a.id, a]));
+
+    return c.json({
+      success: true,
+      data: results.map(r => {
+        const ayah = ayahMap.get(r.ayahId);
+        return {
+          ayahId: r.ayahId,
+          text: ayah?.textArabic,
+          textUthmani: ayah?.textUthmani,
+          surah: ayah?.Surah?.nameArabic,
+          surahEnglish: ayah?.Surah?.nameEnglish,
+          surahNumber: ayah?.Surah?.number,
+          ayahNumber: r.ayahNumber,
+          similarity: r.similarity,
+        };
+      }),
       query,
     });
   } catch (error) {
     console.error('Search error:', error);
     return c.json({ success: false, error: 'Failed to search' }, 500);
+  }
+});
+
+// POST /embeddings/similar - Find similar ayahs by ayah ID
+app.post('/similar', async (c) => {
+  const body = await c.req.json();
+  const { ayahId, limit = 10, threshold = 0.7 } = body;
+
+  if (!ayahId) {
+    return c.json({ success: false, error: 'ayahId is required' }, 400);
+  }
+
+  try {
+    const embeddingResult = await getAyahEmbedding(ayahId);
+    const results = await findSimilarAyahs(embeddingResult.embedding, {
+      limit,
+      threshold,
+      excludeAyahId: ayahId,
+    });
+
+    // Get ayah details
+    const ayahIds = results.map(r => r.ayahId);
+    const ayahs = await db.ayah.findMany({
+      where: { id: { in: ayahIds } },
+      include: {
+        Surah: { select: { nameArabic: true, nameEnglish: true } },
+      },
+    });
+
+    const ayahMap = new Map(ayahs.map(a => [a.id, a]));
+
+    return c.json({
+      success: true,
+      data: results.map(r => {
+        const ayah = ayahMap.get(r.ayahId);
+        return {
+          ayahId: r.ayahId,
+          text: ayah?.textArabic,
+          surah: ayah?.Surah?.nameArabic,
+          surahNumber: ayah?.surahId,
+          ayahNumber: r.ayahNumber,
+          similarity: r.similarity,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error('Similar search error:', error);
+    return c.json({ success: false, error: 'Failed to find similar ayahs' }, 500);
+  }
+});
+
+// GET /embeddings/stats - Get embedding statistics
+app.get('/stats', async (c) => {
+  try {
+    const stats = await getEmbeddingStats();
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    return c.json({ success: false, error: 'Failed to get stats' }, 500);
+  }
+});
+
+// POST /embeddings/similarity - Calculate similarity between two texts
+app.post('/similarity', async (c) => {
+  const body = await c.req.json();
+  const { text1, text2 } = body;
+
+  if (!text1 || !text2) {
+    return c.json({ success: false, error: 'Both text1 and text2 are required' }, 400);
+  }
+
+  try {
+    const [embedding1, embedding2] = await Promise.all([
+      generateEmbedding(text1),
+      generateEmbedding(text2),
+    ]);
+
+    const similarity = cosineSimilarity(embedding1.embedding, embedding2.embedding);
+
+    return c.json({
+      success: true,
+      data: {
+        text1,
+        text2,
+        similarity,
+      },
+    });
+  } catch (error) {
+    console.error('Similarity error:', error);
+    return c.json({ success: false, error: 'Failed to calculate similarity' }, 500);
   }
 });
 

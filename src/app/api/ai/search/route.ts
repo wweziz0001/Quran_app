@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  semanticSearch,
-  hybridSearch,
-  findRelatedAyahs,
-  searchByTheme,
-} from '@/services/ai/semantic-search';
+import { semanticSearchApi } from '@/lib/ai-service-client';
 
 /**
  * POST /api/ai/search
@@ -13,7 +8,7 @@ import {
  * 
  * Body:
  * - query: string (required)
- * - type: 'semantic' | 'hybrid' | 'theme' | 'related' (default: 'semantic')
+ * - type: 'semantic' | 'hybrid' | 'related' | 'theme' (default: 'semantic')
  * - limit?: number
  * - threshold?: number
  * - surahId?: number
@@ -30,12 +25,11 @@ export async function POST(request: NextRequest) {
       limit = 10,
       threshold = 0.5,
       surahId,
-      juz,
       ayahId,
       theme,
     } = body;
     
-    let results;
+    let result;
     
     switch (type) {
       case 'semantic':
@@ -46,14 +40,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        results = await semanticSearch(query, {
-          limit,
-          threshold,
-          surahId,
-          juz,
-          includeTranslation: true,
-          includeTafsir: true,
-        });
+        result = await semanticSearchApi.search(query, { limit, threshold, surahId });
         break;
         
       case 'hybrid':
@@ -64,11 +51,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        results = await hybridSearch(query, {
-          limit,
-          surahId,
-          juz,
-        });
+        result = await semanticSearchApi.hybridSearch(query, { limit, surahId });
         break;
         
       case 'related':
@@ -79,10 +62,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        results = await findRelatedAyahs(ayahId, {
-          limit,
-          threshold,
-        });
+        result = await semanticSearchApi.findRelated(ayahId, { limit });
         break;
         
       case 'theme':
@@ -94,10 +74,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        results = await searchByTheme(searchTheme, {
-          limit,
-          threshold,
-        });
+        result = await semanticSearchApi.searchByTheme(searchTheme, { limit });
         break;
         
       default:
@@ -107,15 +84,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data: results,
-      meta: {
-        query,
-        type,
-        count: results.length,
-      },
-    });
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('[API] AI search error:', error);
@@ -138,7 +107,6 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') || 'semantic';
   const limit = parseInt(searchParams.get('limit') || '10');
   const surahId = searchParams.get('surahId') ? parseInt(searchParams.get('surahId')!) : undefined;
-  const juz = searchParams.get('juz') ? parseInt(searchParams.get('juz')!) : undefined;
   
   if (!query) {
     return NextResponse.json({
@@ -148,28 +116,18 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    let results;
+    let result;
     
     if (type === 'hybrid') {
-      results = await hybridSearch(query, { limit, surahId, juz });
+      result = await semanticSearchApi.hybridSearch(query, { limit, surahId });
     } else {
-      results = await semanticSearch(query, {
+      result = await semanticSearchApi.search(query, {
         limit,
         surahId,
-        juz,
-        includeTranslation: true,
       });
     }
     
-    return NextResponse.json({
-      success: true,
-      data: results,
-      meta: {
-        query,
-        type,
-        count: results.length,
-      },
-    });
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('[API] AI search error:', error);

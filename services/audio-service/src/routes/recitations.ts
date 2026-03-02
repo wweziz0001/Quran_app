@@ -1,5 +1,18 @@
 import { Hono } from 'hono';
 import { db } from '../../shared/db';
+import {
+  createProcessingJob,
+  getProcessingJob,
+  processAudioFile,
+  validateAudioFile,
+  convertToHLS,
+  isFFmpegAvailable,
+  uploadFile,
+  fileExists,
+  getAudioMetadata,
+  cacheAudioMetadata,
+  invalidateCache,
+} from '../services';
 
 const app = new Hono();
 
@@ -95,6 +108,219 @@ app.get('/:id/ayahs', async (c) => {
       total,
       totalPages: Math.ceil(total / limit),
     },
+  });
+});
+
+// POST /recitations/:id/process - Process recitation audio
+app.post('/:id/process', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { inputPath, options } = body;
+
+  if (!inputPath) {
+    return c.json({ success: false, error: 'inputPath is required' }, 400);
+  }
+
+  // Check FFmpeg availability
+  const ffmpegAvailable = await isFFmpegAvailable();
+  if (!ffmpegAvailable) {
+    return c.json({ 
+      success: false, 
+      error: 'FFmpeg is not available on this server' 
+    }, 503);
+  }
+
+  // Create processing job
+  const job = createProcessingJob(id, inputPath);
+
+  // Start processing asynchronously
+  processAudioFile(inputPath, options)
+    .then(async (outputPath) => {
+      // Upload processed file to storage
+      const storageKey = `${id}/processed.mp3`;
+      await uploadFile(outputPath, storageKey, 'audio/mpeg');
+      
+      // Update job status
+      const job = getProcessingJob(id);
+      if (job) {
+        // Invalidate cache for this recitation
+        await invalidateCache(id);
+      }
+    })
+    .catch((error) => {
+      console.error(`[Processing] Job ${id} failed:`, error);
+    });
+
+  return c.json({
+    success: true,
+    data: {
+      jobId: id,
+      status: job.status,
+      message: 'Processing started',
+    },
+  });
+});
+
+// GET /recitations/:id/process/status - Get processing status
+app.get('/:id/process/status', async (c) => {
+  const id = c.req.param('id');
+  
+  const job = getProcessingJob(id);
+  
+  if (!job) {
+    return c.json({ 
+      success: false, 
+      error: 'Processing job not found' 
+    }, 404);
+  }
+
+  return c.json({
+    success: true,
+    data: job,
+  });
+});
+
+// POST /recitations/:id/convert-hls - Convert recitation to HLS
+app.post('/:id/convert-hls', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { inputPath, outputDir, segmentDuration = 10, bitrates = [64, 128, 192, 256] } = body;
+
+  if (!inputPath || !outputDir) {
+    return c.json({ 
+      success: false, 
+      error: 'inputPath and outputDir are required' 
+    }, 400);
+  }
+
+  // Check FFmpeg availability
+  const ffmpegAvailable = await isFFmpegAvailable();
+  if (!ffmpegAvailable) {
+    return c.json({ 
+      success: false, 
+      error: 'FFmpeg is not available on this server' 
+    }, 503);
+  }
+
+  try {
+    const result = await convertToHLS({
+      inputPath,
+      outputDir,
+      segmentDuration,
+      bitrates,
+    });
+
+    // Update audio file records in database
+    await db.audioFile.upsert({
+      where: {
+        recitationId_ayahId_format: {
+          recitationId: id,
+          ayahId: 0, // For full recitation
+          format: 'hls',
+        },
+      },
+      update: {
+        hlsPlaylistUrl: result.playlistUrl,
+        hlsSegmentsUrl: result.segments,
+        status: 'ready',
+      },
+      create: {
+        recitationId: id,
+        ayahId: 0,
+        format: 'hls',
+        status: 'ready',
+        hlsPlaylistUrl: result.playlistUrl,
+        hlsSegmentsUrl: result.segments,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return c.json({ 
+      success: false, 
+      error: (error as Error).message 
+    }, 500);
+  }
+});
+
+// POST /recitations/:id/validate - Validate audio file
+app.post('/:id/validate', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { filePath } = body;
+
+  if (!filePath) {
+    return c.json({ 
+      success: false, 
+      error: 'filePath is required' 
+    }, 400);
+  }
+
+  // Check if file exists
+  const exists = await fileExists(filePath);
+  if (!exists) {
+    return c.json({ 
+      success: false, 
+      error: 'File not found' 
+    }, 404);
+  }
+
+  // Validate audio file
+  const validation = await validateAudioFile(filePath);
+
+  // Cache metadata if valid
+  if (validation.isValid && validation.metadata) {
+    await cacheAudioMetadata(id, 0, {
+      duration: validation.metadata.duration,
+      bitrate: validation.metadata.bitrate,
+      format: validation.metadata.format,
+    });
+  }
+
+  return c.json({
+    success: true,
+    data: validation,
+  });
+});
+
+// GET /recitations/:id/metadata - Get audio metadata
+app.get('/:id/metadata', async (c) => {
+  const id = c.req.param('id');
+  const body = c.req.query();
+  const filePath = body.filePath;
+
+  if (!filePath) {
+    return c.json({ 
+      success: false, 
+      error: 'filePath query parameter is required' 
+    }, 400);
+  }
+
+  // Check if file exists
+  const exists = await fileExists(filePath);
+  if (!exists) {
+    return c.json({ 
+      success: false, 
+      error: 'File not found' 
+    }, 404);
+  }
+
+  // Get audio metadata
+  const metadata = await getAudioMetadata(filePath);
+
+  // Cache the metadata
+  await cacheAudioMetadata(id, 0, {
+    duration: metadata.duration,
+    bitrate: metadata.bitrate,
+    format: metadata.format,
+  });
+
+  return c.json({
+    success: true,
+    data: metadata,
   });
 });
 

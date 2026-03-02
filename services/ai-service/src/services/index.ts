@@ -8,8 +8,8 @@
  */
 
 // Core services
-export { generateEmbedding, chatCompletion, answerQuranQuestion } from '@/lib/z-ai-client';
-export type { ChatMessage, ChatCompletionResponse, EmbeddingResponse } from '@/lib/z-ai-client';
+export { generateEmbedding, chatCompletion, answerQuranQuestion } from '../lib/z-ai-client';
+export type { ChatMessage, ChatCompletionResponse, EmbeddingResponse } from '../lib/z-ai-client';
 
 // Embeddings
 export {

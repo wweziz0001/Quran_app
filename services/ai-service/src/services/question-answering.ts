@@ -7,9 +7,9 @@
  * @module question-answering
  */
 
-import { db } from '@/lib/db';
-import { answerQuranQuestion, chatCompletion } from '@/lib/z-ai-client';
-import { semanticSearch, hybridSearch } from './semantic-search';
+import { db } from '../../shared/db';
+import { answerQuranQuestion, chatCompletion } from '../lib/z-ai-client';
+import { semanticSearch } from './semantic-search';
 
 // Types
 export interface QAResult {
