@@ -18,6 +18,50 @@
 
 ---
 
+## [1.9.0] - 2025-01-XX
+
+### ✨ الميزات الجديدة - Stage 5: Audio Streaming Scaffold
+
+#### نظام بث الصوت الاحترافي (Professional Audio Streaming)
+
+تم إنشاء نظام متكامل لبث الصوت يشمل:
+
+| الميزة | الوصف |
+|--------|-------|
+| **HLS Streaming** | بث HTTP Live Streaming بجودات متعددة |
+| **Adaptive Bitrate** | 64k, 128k, 192k, 256k |
+| **Pre-signed URLs** | روابط آمنة موقعة للبث |
+| **Redis Caching** | تخزين مؤقت للروابط والمetadata |
+| **FFmpeg Integration** | تحويل ومعالجة الصوت |
+
+#### الملفات الجديدة
+
+**src/services/audio/**
+- `hls-converter.ts` - تحويل الصوت إلى HLS (~400 سطر)
+- `storage.ts` - التخزين المحلي/S3 (~300 سطر)
+- `cache.ts` - Redis caching (~250 سطر)
+- `audio-processor.ts` - معالجة الصوت (~350 سطر)
+- `pre-signed.ts` - روابط موقعة (~200 سطر)
+- `index.ts` - نقطة الدخول الرئيسية
+
+**src/app/api/audio/**
+- `stream/route.ts` - GET بث الصوت
+- `upload/route.ts` - POST رفع الملفات
+- `process/route.ts` - POST/GET معالجة الصوت
+- `status/route.ts` - GET/DELETE حالة المعالجة
+
+**mini-services/audio-processor/**
+- `index.ts` - خدمة المعالجة الخلفية
+- `package.json` - إعدادات الحزمة
+
+**scripts/**
+- `convert-to-hls.ts` - تحويل الصوت إلى HLS
+- `sync-audio-files.ts` - مزامنة الملفات من API خارجي
+
+**التفاصيل:** انظر `changelog/v1.9.0.md`
+
+---
+
 ## [1.8.1] - 2025-01-XX
 
 ### 🔧 الإصلاحات
