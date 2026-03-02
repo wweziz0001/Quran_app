@@ -253,8 +253,11 @@ fetch('/api/embeddings?XTransformPort=3007', {
 | admin-service |	3008 |	الإدارة
 
 ⚠️ ملاحظات مهمة
+
 للتطوير المحلي: يمكنك الاكتفاء بتشغيل Next.js فقط (الخدمات الاختيارية)
+
 للإنتاج: استخدم Docker Compose أو Kubernetes
+
 Gateway: تأكد من أن Caddy يعمل لتوجيه الطلبات
 
 
