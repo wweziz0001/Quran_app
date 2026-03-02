@@ -1,0 +1,167 @@
+# =============================================================================
+# Repository Settings
+# =============================================================================
+# This file defines the repository settings for the Probot Settings app.
+# https://probot.github.io/apps/settings/
+# =============================================================================
+
+repository:
+  # Repository name and description
+  name: Quran_app
+  description: "Quran Application Platform - A comprehensive, production-ready platform for Quran recitation, tafsir, and Islamic content"
+  
+  # Repository settings
+  private: false
+  has_issues: true
+  has_projects: true
+  has_wiki: true
+  has_downloads: true
+  
+  # Default branch
+  default_branch: main
+  
+  # Features
+  allow_squash_merge: true
+  allow_merge_commit: true
+  allow_rebase_merge: true
+  allow_auto_merge: true
+  delete_branch_on_merge: true
+  
+  # Security
+  enable_automated_security_fixes: true
+  enable_vulnerability_alerts: true
+
+# Labels
+labels:
+  # Type labels
+  - name: "bug"
+    color: "d73a4a"
+    description: "Something isn't working"
+  - name: "feature"
+    color: "0e8a16"
+    description: "New feature or request"
+  - name: "enhancement"
+    color: "a2eeef"
+    description: "Improvement to existing feature"
+  - name: "documentation"
+    color: "0075ca"
+    description: "Improvements or additions to documentation"
+  
+  # Priority labels
+  - name: "priority: critical"
+    color: "b60205"
+    description: "Critical priority"
+  - name: "priority: high"
+    color: "ff7f00"
+    description: "High priority"
+  - name: "priority: medium"
+    color: "ffbb00"
+    description: "Medium priority"
+  - name: "priority: low"
+    color: "c2e0c6"
+    description: "Low priority"
+  
+  # Size labels
+  - name: "size/XS"
+    color: "ededed"
+    description: "Extra small PR (1-5 lines)"
+  - name: "size/S"
+    color: "5ae0c2"
+    description: "Small PR (1-5 files)"
+  - name: "size/M"
+    color: "5be0c2"
+    description: "Medium PR (6-10 files)"
+  - name: "size/L"
+    color: "d4c5f9"
+    description: "Large PR (11-20 files)"
+  - name: "size/XL"
+    color: "c5def5"
+    description: "Extra large PR (20+ files)"
+  
+  # Status labels
+  - name: "status/blocked"
+    color: "b60205"
+    description: "Blocked by another issue"
+  - name: "status/duplicate"
+    color: "cfd3d7"
+    description: "This issue or pull request already exists"
+  - name: "status/help wanted"
+    color: "008672"
+    description: "Extra attention is needed"
+  - name: "status/invalid"
+    color: "e4e669"
+    description: "This doesn't seem right"
+  - name: "status/wontfix"
+    color: "ffffff"
+    description: "This will not be worked on"
+  - name: "status/in progress"
+    color: "fbca04"
+    description: "Work in progress"
+  - name: "status/needs review"
+    color: "fbca04"
+    description: "Needs code review"
+  
+  # Category labels
+  - name: "api"
+    color: "1d76db"
+    description: "API related changes"
+  - name: "frontend"
+    color: "bfd4f2"
+    description: "Frontend/UI changes"
+  - name: "backend"
+    color: "bfdadc"
+    description: "Backend changes"
+  - name: "database"
+    color: "d4c5f9"
+    description: "Database changes"
+  - name: "security"
+    color: "0e8a16"
+    description: "Security related changes"
+  - name: "ci/cd"
+    color: "bfd4f2"
+    description: "CI/CD pipeline changes"
+  - name: "ai"
+    color: "5319e7"
+    description: "AI/ML related changes"
+  
+  # Version labels
+  - name: "v1.8.0"
+    color: "ededed"
+    description: "Version 1.8.0 related"
+  - name: "v1.7.0"
+    color: "ededed"
+    description: "Version 1.7.0 related"
+
+# Branch protection rules
+branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: false
+      required_status_checks:
+        strict: true
+        contexts:
+          - "Code Quality"
+          - "Build (ubuntu-latest)"
+      enforce_admins: false
+      required_linear_history: false
+      allow_force_pushes: false
+      allow_deletions: false
+      block_creations: true
+      required_conversation_resolution: true
+
+  - name: "v*"
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+      required_status_checks:
+        strict: true
+        contexts:
+          - "Code Quality"
+      enforce_admins: false
+      allow_force_pushes: false
+      allow_deletions: false

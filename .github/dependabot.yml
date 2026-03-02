@@ -1,0 +1,155 @@
+# =============================================================================
+# Dependabot Configuration
+# =============================================================================
+# Automated dependency updates to keep dependencies secure and up-to-date.
+#
+# For more information, see:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/about-dependabot-version-updates
+# =============================================================================
+
+version: 2
+
+registries:
+  npm-registry:
+    type: npm-registry
+    url: https://registry.npmjs.org
+
+updates:
+  # ===========================================================================
+  # Main Application Dependencies (bun/package.json)
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Ignore major version updates for stable packages
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+
+  # ===========================================================================
+  # AI Service Dependencies
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/services/ai-service"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "dependencies"
+      - "ai-service"
+    commit-message:
+      prefix: "chore(ai-service)"
+      include: "scope"
+
+  # ===========================================================================
+  # Admin Service Dependencies
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/services/admin-service"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "dependencies"
+      - "admin-service"
+    commit-message:
+      prefix: "chore(admin-service)"
+      include: "scope"
+
+  # ===========================================================================
+  # Upload Service Dependencies
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/mini-services/upload-service"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "dependencies"
+      - "upload-service"
+    commit-message:
+      prefix: "chore(upload-service)"
+      include: "scope"
+
+  # ===========================================================================
+  # GitHub Actions Dependencies
+  # ===========================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "github-actions"
+      - "dependencies"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # ===========================================================================
+  # Docker Dependencies
+  # ===========================================================================
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "wweziz0001"
+    labels:
+      - "docker"
+      - "dependencies"
+    commit-message:
+      prefix: "docker"
+      include: "scope"

@@ -1,0 +1,83 @@
+# =============================================================================
+# CODEOWNERS - Code Ownership Definition
+# =============================================================================
+# This file defines the code owners for the repository.
+# Code owners are automatically requested for review when someone opens a
+# pull request that modifies code that they own.
+#
+# For more information, see:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =============================================================================
+
+# Default owners for everything in the repo
+* @wweziz0001
+
+# =============================================================================
+# By File Type
+# =============================================================================
+
+# TypeScript/JavaScript files
+*.ts @wweziz0001
+*.tsx @wweziz0001
+*.js @wweziz0001
+*.jsx @wweziz0001
+
+# Configuration files
+*.json @wweziz0001
+*.yml @wweziz0001
+*.yaml @wweziz0001
+
+# Database files
+/prisma/ @wweziz0001
+/db/ @wweziz0001
+
+# =============================================================================
+# By Directory
+# =============================================================================
+
+# Source code
+/src/ @wweziz0001
+
+# API routes
+/src/app/api/ @wweziz0001
+
+# Services
+/services/ @wweziz0001
+/mini-services/ @wweziz0001
+
+# AI Services
+/src/services/ai/ @wweziz0001
+/services/ai-service/ @wweziz0001
+
+# Components
+/src/components/ @wweziz0001
+
+# Infrastructure
+/.github/ @wweziz0001
+/k8s/ @wweziz0001
+/docker-compose.yml @wweziz0001
+/Dockerfile @wweziz0001
+/Caddyfile @wweziz0001
+
+# Documentation
+/docs/ @wweziz0001
+/README.md @wweziz0001
+/DEVELOPMENT_GUIDE.md @wweziz0001
+
+# Tests
+/tests/ @wweziz0001
+/__tests__/ @wweziz0001
+*.test.ts @wweziz0001
+*.spec.ts @wweziz0001
+
+# =============================================================================
+# Security-sensitive files
+# =============================================================================
+
+# Authentication
+/src/lib/auth.ts @wweziz0001
+/src/app/api/auth/ @wweziz0001
+
+# Environment and secrets
+.env.example @wweziz0001
+.env* @wweziz0001
