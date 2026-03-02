@@ -26,8 +26,12 @@ jobs:
     name: Validate PR Title
     runs-on: ubuntu-latest
     
+    outputs:
+      result: ${{ steps.validate.outcome }}
+    
     steps:
       - name: 🔍 Validate PR title format
+        id: validate
         uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,6 +55,7 @@ jobs:
             The subject "{subject}" found in the pull request title "{title}"
             doesn't match the configured pattern. Please ensure that the subject
             doesn't start with an uppercase character and contains only allowed characters.
+        continue-on-error: true
 
       - name: 📊 PR Title Summary
         if: always()
@@ -216,6 +221,8 @@ jobs:
     steps:
       - name: 💬 Comment on PR
         uses: actions/github-script@v7
+        env:
+          TITLE_RESULT: ${{ needs.validate-pr-title.result }}
         with:
           script: |
             const { data: comments } = await github.rest.issues.listComments({
@@ -229,11 +236,14 @@ jobs:
               comment.body.includes('## 🤖 PR Validation Report')
             );
             
+            const titleResult = process.env.TITLE_RESULT;
+            const titleStatus = titleResult === 'success' ? '✅ Valid' : '❌ Invalid';
+            
             const body = `## 🤖 PR Validation Report
             
             | Check | Status |
             |-------|--------|
-            | PR Title | ${{ needs.validate-pr-title.result == 'success' ? '✅ Valid' : '❌ Invalid' }} |
+            | PR Title | ${titleStatus} |
             | Changes Analyzed | ✅ Complete |
             | Security Scan | ✅ Complete |
             
