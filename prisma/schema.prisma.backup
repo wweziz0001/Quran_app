@@ -93,7 +93,7 @@ model ImageMushafAyah {
 }
 
 model ImageMushafEdition {
-  id                  String                @id @default(cuid())
+  id                  String                @id
   slug                String                @unique
   nameArabic          String
   nameEnglish         String
@@ -114,7 +114,7 @@ model ImageMushafEdition {
   sourceUrl           String?
   comment             String?
   createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  updatedAt           DateTime
   ImageMushafAyah     ImageMushafAyah[]
   ImageMushafPage     ImageMushafPage[]
   ImageMushafSurah    ImageMushafSurah[]
@@ -415,7 +415,7 @@ model TtfMushafAyah {
 }
 
 model TtfMushafEdition {
-  id               String             @id @default(cuid())
+  id               String             @id
   slug             String             @unique
   nameArabic       String
   nameEnglish      String
@@ -437,7 +437,7 @@ model TtfMushafEdition {
   sourceUrl        String?
   comment          String?
   createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  updatedAt        DateTime
   TtfDiscriminator TtfDiscriminator[]
   TtfMushafAyah    TtfMushafAyah[]
   TtfMushafPage    TtfMushafPage[]
