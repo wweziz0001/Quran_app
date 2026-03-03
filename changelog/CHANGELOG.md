@@ -19,6 +19,32 @@
 
 ---
 
+## [3.0.3] - 2026-03-03
+
+### 🔧 الإصلاحات
+
+#### إصلاح خطأ Hydration Mismatch في صفحة Deployment
+
+**المشكلة:**
+خطأ `Hydration Mismatch` في React عند تحميل صفحة `/admin/deployment`.
+
+**السبب:**
+مكون `Tabs` من Radix UI يولّد IDs عشوائية مختلفة بين Server و Client.
+
+**الحل:**
+إضافة `'use client'` إلى صفحة `deployment/page.tsx`.
+
+**الملفات المتأثرة:**
+- `src/app/admin/deployment/page.tsx` - إضافة `'use client'`
+
+**النتيجة:**
+- ✅ إصلاح خطأ Hydration Mismatch
+- ✅ صفحة Deployment تعمل بدون أخطاء Console
+
+**التفاصيل:** انظر `changelog/v3.0.3.md`
+
+---
+
 ## [3.0.2] - 2026-03-02
 
 ### 🔧 الإصلاحات
